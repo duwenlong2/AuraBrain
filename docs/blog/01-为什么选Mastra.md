@@ -7,7 +7,7 @@
 选 **Mastra**，一个 TypeScript 的 AI Agent 框架。
 
 ```
-1. 语言匹配 —— TypeScript 原生，和我技术栈一致
+1. 生态全面 —— TypeScript 原生，经过检索之后发现最多的是TS和python，C++ 和C#也能做。但是热度明显没有TypeScript和python的高，由于我不是主做科研的，还是主要做产品化，所以我选择了TypeScript。
 2. 覆盖全面 —— Agent + Workflow 双一等公民，一个框架两种范式
 3. 自包含 —— 记忆、存储、可观测性全内置，不依赖商业平台
 4. 开源自托管 —— 符合"云端方案整体开源"的诉求
@@ -60,14 +60,14 @@ LangGraph 官方定位是 low-level orchestration framework，很底层，专注
 ## 四、排除逻辑与选择理由
 
 ```
-OpenClaw  → 排除：不是开发框架，是运行环境
+OpenClaw  → 排除：不是开发框架，是运行环境，我不想从新在翻版一个自己的openclaw，我自己部署openclaw 使用起来感觉挺好的。主要是模型能力，但是常规的代码主力IDE我使用的是vscode。openclaw每天帮我生成一些每日简报，竞品调研什么的。但是由于我接入的是一个IQ4的Qwen35B-Moe模型导致了其实在做复杂任务的时候，质量也没有那么高，产出的东西总有一些我不满意的小问题。
 AutoGen   → 排除：维护模式，官方推 MAF
 LangGraph → 权衡：生态最大、招聘最多，但 Python 为主，
             且要凑齐 LangChain + LangSmith 全家桶，
             可观测性和部署强依赖商业平台
 ```
 
-选 Mastra 的四个理由：**TypeScript 语言匹配、Agent + Workflow 双范式、记忆/存储/可观测性全内置不依赖商业平台、开源自托管**（呼应 AuraCore，云端方案整体开源）。
+选 Mastra 的四个理由：**TypeScript 语言热度比较高、Agent + Workflow 双范式、记忆/存储/可观测性全内置不依赖商业平台、开源自托管**（呼应 AuraCore，云端方案整体开源）。
 
 ## 五、学习规划
 
