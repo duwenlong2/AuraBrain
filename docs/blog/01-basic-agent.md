@@ -2,6 +2,32 @@
 
 > 学一个框架，最快的上手方式不是读文档，而是把一个官方模板跑起来、拆开看、再亲手改。这篇记录我对 Mastra 官方模板（Agent Harness）的探索过程——项目结构、核心概念，以及两个让我"原来如此"的实验。
 
+## 关于 AuraBrain 开源项目
+
+这篇文章来自开源项目 [**AuraBrain**](https://github.com/duwenlong2/AuraBrain)（给 AuraCore 装上大脑）。这是一个"硬件 + 云端 AI"的完整系列：
+
+```
+AuraBrain = 云端 AI 大脑（用 Mastra 构建，本系列）→ 🧠
+AuraCore  = ESP32 硬件端（蓝牙/WiFi/MQTT 控制）   → ⚙️
+    两者通过 MQTT 通信，从自然语言到真实硬件
+```
+
+**仓库结构**（别人怎么看）：
+
+```
+AuraBrain/
+├── docs/blog/     ← 系列博客（编号和 examples 一一对应）
+├── examples/      ← 可运行的示例代码（最小 MVP）
+└── mastra/        ← Mastra 框架源码（独立拉取，不提交）
+```
+
+**推荐阅读方式**：
+1. 先看博客（00 → 01 → 02...）建立概念
+2. 打开对应的 `examples/` 自己跑一遍（`npm run dev`）
+3. 想看框架源码就 `git clone https://github.com/mastra-ai/mastra.git mastra`
+
+> 整个系列代码开源（MIT），目标是"把 AI 高阶能力的探索过程完整记录下来"。
+
 ## 一、先说结论
 
 Mastra 项目的核心就三样东西：
