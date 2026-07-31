@@ -28,10 +28,13 @@ git clone https://github.com/mastra-ai/mastra.git mastra
 
 # 2. 跑第一个示例
 cd examples/01-basic-agent
-cp .env.example .env   # 填入 OPENAI_API_KEY
+cp .env.example .env   # 填入 DEEPSEEK_API_KEY（默认用 DeepSeek）
 npm install
 npm run dev            # 打开 http://localhost:4111 访问 Mastra Studio
 ```
+
+> **API Key 安全**：所有 key 都放在 `.env`（已被 `.gitignore` 忽略），不会提交到 GitHub。
+> 本示例默认使用 DeepSeek（`deepseek/deepseek-v4-flash`），也可在 `.env` 填 `OPENAI_API_KEY` 切换回 OpenAI——只需改 `src/mastra/agents/*.ts` 里的 `model` 字符串即可。
 
 ## 学习方式
 

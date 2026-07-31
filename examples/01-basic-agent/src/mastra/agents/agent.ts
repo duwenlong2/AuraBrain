@@ -1,6 +1,5 @@
 import { pathToFileURL } from 'node:url';
 
-import { openai } from '@ai-sdk/openai';
 import { Agent } from '@mastra/core/agent';
 import { TaskSignalProvider } from '@mastra/core/signals';
 import { askUserTool } from '@mastra/core/tools';
@@ -49,7 +48,7 @@ Ask concise questions when something is unclear or a good question could surface
 
 For local file changes, end with a plain-text URL using ${pathToFileURL(`${workspacePath}/`).href}; avoid Markdown links, localhost, /workspace, relative paths, and static-file servers.
 `,
-  model: 'openai/gpt-5.6-terra',
+  model: 'deepseek/deepseek-v4-flash',
   defaultOptions: {
     maxSteps: 100,
     autoResumeSuspendedTools: true,
@@ -58,7 +57,7 @@ For local file changes, end with a plain-text URL using ${pathToFileURL(`${works
     options: {
       generateTitle: true,
       observationalMemory: {
-        model: 'openai/gpt-5-mini',
+        model: 'deepseek/deepseek-chat',
       },
     },
   }),
@@ -68,7 +67,6 @@ For local file changes, end with a plain-text URL using ${pathToFileURL(`${works
     start_schedule: startScheduleTool,
     stop_schedule: stopScheduleTool,
     web_fetch: webFetchTool,
-    web_search: openai.tools.webSearch(),
   },
   signals: [new TaskSignalProvider()],
 });

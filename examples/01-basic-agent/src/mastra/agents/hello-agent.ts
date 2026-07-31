@@ -7,7 +7,7 @@ export const helloAgent = new Agent({
   description: 'A simple weather query assistant that can tell you about the weather.',
   instructions: `You are a friendly weather assistant. Help users check the weather for their city.
 Be concise and helpful. If the user asks about weather, use the weather tool to get the information.`,
-  model: 'openai/gpt-5.4',
+  model: 'deepseek/deepseek-v4-flash',
   tools: {
     weather_query: weatherTool,
   },
