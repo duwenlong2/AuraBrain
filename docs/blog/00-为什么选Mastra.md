@@ -79,15 +79,14 @@ LangGraph → 权衡：生态最大、招聘最多，但 Python 为主，
 阶段三：框架评估 —— 优势、缺陷、迭代史、如何设计一个好框架
 ```
 
-**每篇博客 = 一个知识点 = 最小 MVP 例子 + 学习笔记**，与 `examples/` 一一对应：
+**每篇博客 = 一个知识点 = 最小 MVP 例子 + 学习笔记**，与 `examples/` 一一对应（博客编号 = 示例编号）：
 
 | 博客 | 主题 | examples 对应 |
 |------|------|--------------|
-| 01 | 为什么选 Mastra（本片） | - |
-| 02 | 环境搭建 + 项目结构 | 01-basic-agent |
-| 03 | 第一个 Agent | 01-basic-agent |
-| 04 | 工具系统 | 01-basic-agent |
-| ... | 后续按进度展开 | examples/02-... |
+| 00 | 为什么选 Mastra（本片，系列开篇） | - |
+| 01 | 官方模板初探 | 01-basic-agent |
+| 02 | 从 0 写极简 Agent（工具/记忆/存储/观测） | 02-mini-agent |
+| ... | 后续按进度展开 | examples/03-... |
 
 **每个示例保持最小 MVP**：能跑、能验证一个知识点、讲清楚怎么初始化、怎么切换、怎么学习，不堆功能。
 
@@ -98,9 +97,9 @@ LangGraph → 权衡：生态最大、招聘最多，但 Python 为主，
 git clone https://github.com/mastra-ai/mastra.git mastra
 # 更新源码：cd mastra && git pull
 
-# 2. 跑第一个示例
-cd examples/01-basic-agent
-cp .env.example .env    # 填入 OPENAI_API_KEY
+# 2. 跑示例（推荐从最简的 02 开始）
+cd examples/02-mini-agent
+cp .env.example .env    # 填入 DEEPSEEK_API_KEY（默认模型）
 npm install
 npm run dev             # 打开 http://localhost:4111
 ```
