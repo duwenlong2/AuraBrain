@@ -4,7 +4,7 @@
 
 ## 关于 AuraBrain 开源项目
 
-这篇文章来自开源项目 [**AuraBrain**](https://github.com/duwenlong2/AuraBrain)（给 AuraCore 装上大脑）。这是一个"硬件 + 云端 AI"的完整系列：
+这是我的开源项目 [**AuraBrain**](https://github.com/duwenlong2/AuraBrain)（MIT 开源），一个"硬件 + 云端 AI"的完整系列：
 
 ```
 AuraBrain = 云端 AI 大脑（用 Mastra 构建，本系列）→ 🧠
@@ -12,7 +12,22 @@ AuraCore  = ESP32 硬件端（蓝牙/WiFi/MQTT 控制）   → ⚙️
     两者通过 MQTT 通信，从自然语言到真实硬件
 ```
 
-**仓库结构**（别人怎么看）：
+**本文对应的代码**：`examples/02-mini-agent/`（从 0 手写的极简示例）
+
+```
+examples/02-mini-agent/
+├── src/mastra/
+│   ├── index.ts                  ← Agent + Storage + Observability
+│   ├── agents/calculator-agent.ts ← 1 个 Agent（2 工具 + Memory）
+│   └── tools/
+│       ├── calculator-tool.ts    ← 工具1：计算器
+│       └── unit-convert-tool.ts  ← 工具2：单位换算
+└── README.md                     ← 完整学习笔记（5 个实验 + 数据库 + 术语）
+```
+
+这篇博客讲的每个知识点（工具 4 件套 / Agent 5 件套 / 多工具选择 / 记忆隔离 / 持久化对照 / 观测耗时），**在 examples 里都有可运行的代码 + README 实验记录**。想深入看代码、复现"光年"实验、查真实 trace 数据，去开源项目对应目录看。
+
+**仓库怎么读**：
 
 ```
 AuraBrain/
@@ -22,11 +37,10 @@ AuraBrain/
 ```
 
 **推荐阅读方式**：
-1. 先看博客（00 → 01 → 02...）建立概念
-2. 打开对应的 `examples/` 自己跑一遍（`npm run dev`）
-3. 想看框架源码就 `git clone https://github.com/mastra-ai/mastra.git mastra`
-
-> 整个系列代码开源（MIT），目标是"把 AI 高阶能力的探索过程完整记录下来"。
+1. 看博客建立概念
+2. 打开对应 `examples/` 自己跑一遍（`npm run dev`）
+3. 想深入：看 `examples` 对应目录的代码 + README 学习笔记
+4. 想看框架源码：`git clone https://github.com/mastra-ai/mastra.git mastra`
 
 ## 一、先说结论
 
