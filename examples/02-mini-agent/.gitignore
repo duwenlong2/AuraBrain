@@ -1,0 +1,19 @@
+# 依赖
+node_modules/
+dist/
+.mastra/
+
+# 环境变量（模板 .env.example 保留）
+.env
+.env.*
+!.env.example
+
+# 数据库
+*.db
+*.db-*
+
+# 日志
+*.log
+
+# 操作系统
+.DS_Store

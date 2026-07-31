@@ -1,0 +1,23 @@
+{
+  "name": "mini-agent",
+  "version": "0.1.0",
+  "description": "Mastra 极简示例：1 个 Agent + 1 个工具（计算器）",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "mastra dev",
+    "build": "mastra build",
+    "start": "mastra start"
+  },
+  "dependencies": {
+    "@mastra/core": "latest",
+    "@mastra/libsql": "^1.18.0",
+    "@mastra/memory": "^1.24.0",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@types/node": "latest",
+    "mastra": "latest",
+    "typescript": "^6.0.3"
+  }
+}
