@@ -1,8 +1,9 @@
 # 02-mini-agent
 
-Mastra **极简示例**：1 个 Agent + 1 个工具（计算器）。从 0 手写，逐行能看懂的最小可运行项目。
+Mastra **极简示例**：从 0 手写，逐行能看懂的最小可运行项目。
 
 > 对比 `01-basic-agent`（官方模板，带 workspace/memory/signals 一大堆），本项目**故意砍到最少**，用于建立"最小可运行"的心智模型。
+> 已逐步丰富：**1 Agent + 2 工具 + Memory + Storage + Observability**。
 
 ## 快速开始
 
@@ -20,12 +21,14 @@ npm run dev            # 打开 http://localhost:4111（远程 SSH 用 VS Code �
 ├── tsconfig.json                 ← TS 配置
 ├── .env.example / .env           ← key 模板 / 真实 key（.env 不提交）
 └── src/mastra/
-    ├── index.ts                  ← 入口：new Mastra({ agents: {...} })
-    ├── agents/calculator-agent.ts ← Agent：人设 + 模型 + 工具
-    └── tools/calculator-tool.ts  ← 工具：id + description + inputSchema + execute
+    ├── index.ts                  ← 入口：Agent + Storage + Observability 都在这配
+    ├── agents/calculator-agent.ts ← Agent：人设 + 模型 + 工具 + Memory
+    └── tools/
+        ├── calculator-tool.ts    ← 工具1：计算器
+        └── unit-convert-tool.ts  ← 工具2：单位换算
 ```
 
-**只有 3 个代码文件**。这就是最小可运行的 Mastra 应用。
+**只有 3 个代码文件**（加 2 个工具文件 = 4 个 .ts）。这就是最小可运行的 Mastra 应用。
 
 ---
 
@@ -167,6 +170,95 @@ Agent："你叫杜文龙呀" ✅ 记住了
 2. **LibSQL = SQLite 的一个文件**：`file:./mastra.db` 就是项目里的一个数据库文件，数据都在里面。
 3. **真实坑**：**改配置（如 storage）后，热更新可能不彻底**——要**完全重启** dev server 才生效。当时热更新没加载到 storage，差点以为没配成功。
 
+### 实验 5：Observability 可观测性（Agent 的"黑匣子"）
+
+给 `index.ts` 加上 `Observability` 配置后，每次运行都会被记录：
+
+```
+配置：
+  Observability             = 采集每次运行
+  MastraStorageExporter     = 记录存到 mastra.db
+  SensitiveDataFilter       = API key 等敏感数据脱敏
+```
+
+**怎么观测（Traces 页）**：
+```
+1. 和 Agent 对话几次（产生 trace 记录）
+2. Studio → 点 Agent 顶部的 "Traces" 标签页
+3. 每条 = 一次运行，可展开看：
+   ├── 模型调用（DeepSeek）：输入/输出 tokens、耗时
+   ├── 工具调用（calculator）：参数、结果、耗时
+   └── 完整执行链路
+```
+
+**教学点**：
+1. **Observability 是调试 Agent 的核心**——回答慢、工具没调用、token 超了，看 trace 就知道原因。
+2. **MastraPlatformExporter 需要 Mastra 平台 token**（`MASTRA_PLATFORM_ACCESS_TOKEN`），没有会自动禁用（`setDisabled`），不报错。**不用平台就不配它**（本地看 trace 够用，且不依赖商业平台）。
+3. 数据存哪：trace 存 `mastra_ai_spans` 表。
+
+### 真实 trace 数据（从数据库读取）
+
+跑 3 次对话（单位换算 / 计算器 / 普通对话）后，从 `mastra_ai_spans` 表读取的真实耗时：
+
+```
+对话 1（触发 unit_convert）总耗时 2110 ms：
+  agent run（整个运行）          2110 ms
+  ├── input processor（输入处理）   3 ms
+  ├── memory: recall（记忆召回）    0 ms
+  ├── llm: deepseek（调 DeepSeek）2012 ms  ← 大头！
+  ├── tool: unit_convert（工具调用） 2 ms
+  ├── output processor（输出处理）  14 ms
+  └── memory: save（保存记忆）     12 ms
+
+对话 2（触发 calculator）总耗时 2039 ms：llm 2029 ms，tool 1 ms
+对话 3（普通对话，无工具）总耗时 1588 ms：llm 1580 ms
+```
+
+**核心洞察**：
+```
+✅ 每次对话耗时 99% 花在"等模型回复"（1500~2000 ms）
+✅ 工具调用只要 1~2 ms（本地函数，瞬间完成）
+✅ 记忆读写只要 0~12 ms（数据库很快）
+结论：Agent 的"慢"几乎全在模型调用，框架本身开销可忽略。
+      调优重点是模型和 prompt，不是框架。
+```
+
+**trace 揭示的 Agent 运行流程**（一次对话的真实步骤）：
+
+```
+agent run（开始）
+→ input processor（处理输入）
+→ memory: recall（读取之前的记忆）
+→ llm（DeepSeek 推理）→ 决定是否用工具
+→ tool（调用工具，如果有）→ 结果回给 llm
+→ llm（再推理，组织回答）
+→ output processor（处理输出）
+→ memory: save（保存这次对话）
+```
+
+## 数据库：位置与结构
+
+### 数据库文件在哪
+
+```
+位置：examples/02-mini-agent/src/mastra/public/mastra.db
+```
+
+> ⚠️ **坑**：LibSQL 的 `file:./mastra.db` 是**相对路径**，相对于 Mastra 的 bundle 运行目录，**不是项目根目录**。实际落在 `src/mastra/public/` 下。（01 也一样：`examples/01-basic-agent/src/mastra/public/mastra.db`）
+
+### 表结构（关键表）
+
+数据库里有很多表（大部分是 Mastra 预建的空表），关键的表：
+
+| 表 | 存什么 | 实际数据 |
+|----|--------|---------|
+| `mastra_threads` | 对话线程（标题等） | ✅ 有（"命名巴克与设定探险性格"——generateTitle 自动起的） |
+| `mastra_messages` | 对话消息（你说的话 + AI 回复） | ✅ 有 |
+| `mastra_ai_spans` | 可观测性 trace/span | 跑对话后会有 |
+| `mastra_observational_memory` | 观察性记忆 | 配了才用 |
+
+**验证"重启记忆还在"的真相**：记忆其实存在 `mastra_threads` + `mastra_messages` 表里（磁盘文件），重启后 Mastra 从文件读回，所以记得。
+
 ## 术语对照（英文 → 直观理解）
 
 | 术语 | 中文 | 直观理解 |
@@ -184,7 +276,12 @@ Agent："你叫杜文龙呀" ✅ 记住了
 | Storage | 存储 | 数据存在哪 |
 | Observability | 可观测性 | 记录每次运行干了什么 |
 | Thread | 对话线程 | 一次对话的上下文 |
+| Trace | 追踪 | 一次运行的完整记录 |
+| Span | 片段 | trace 里的一段（模型调用/工具调用） |
+| Token | 令牌 | 模型处理文字的最小单位（计费用） |
+| Exporter | 导出器 | 把记录"送出去"的组件（本地/平台） |
 
 ---
 
 _最后更新：2026-07-31_
+

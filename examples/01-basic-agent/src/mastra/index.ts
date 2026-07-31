@@ -19,7 +19,6 @@ import { DuckDBStore } from '@mastra/duckdb';              // DuckDB 存储（�
 import { MastraCompositeStore } from '@mastra/core/storage'; // 复合存储：不同数据可存不同数据库
 import {
   MastraStorageExporter,    // 把可观测数据导出到本地存储
-  MastraPlatformExporter,   // 把可观测数据导出到 Mastra 平台（可选）
   Observability,            // 可观测性：记录每次运行的完整 trace
   SensitiveDataFilter,      // 敏感数据过滤：API key 等不记录到日志
 } from '@mastra/observability';
@@ -59,7 +58,7 @@ export const mastra = new Mastra({
         serviceName: 'mastra',
         exporters: [
           new MastraStorageExporter(),   // 观测数据落库（存到上面配的 DuckDB）
-          new MastraPlatformExporter(),  // 同步到 Mastra 平台（可选，不用可删）
+          // 说明：没用 Mastra 平台（无 token），所以不配 MastraPlatformExporter
         ],
         spanOutputProcessors: [new SensitiveDataFilter()], // 敏感数据自动脱敏
       },

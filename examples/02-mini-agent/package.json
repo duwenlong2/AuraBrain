@@ -13,6 +13,7 @@
     "@mastra/core": "latest",
     "@mastra/libsql": "^1.18.0",
     "@mastra/memory": "^1.24.0",
+    "@mastra/observability": "^1.16.3",
     "zod": "^4.4.3"
   },
   "devDependencies": {
