@@ -10,12 +10,14 @@
     "start": "mastra start"
   },
   "dependencies": {
-    "@mastra/core": "latest",
+    "@mastra/core": "^1.55.0",
+    "@mastra/libsql": "^1.18.0",
+    "@mastra/observability": "^1.16.3",
     "zod": "^4.4.3"
   },
   "devDependencies": {
     "@types/node": "latest",
-    "mastra": "latest",
+    "mastra": "^1.21.0",
     "typescript": "^6.0.3"
   }
 }

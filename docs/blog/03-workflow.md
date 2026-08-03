@@ -1,4 +1,4 @@
-# 03 · 从 0 写一个极简 Workflow：顺序 / 并行 / 分支
+# 03 · 从 0 写一个 Workflow：控制流 / State / 持久化
 
 > 前两篇把 Agent（柔性推理）玩明白了。这篇轮到 Mastra 双一等公民的另一半——**Workflow（确定性流程）**：步骤写死、顺序执行、相同输入必定相同输出。我从 0 手写了一个模拟"传感器读数 → 智能决策 → 硬件指令"的智能家居 Workflow，这篇记录顺序、并行、分支四种控制流是怎么用起来的。
 
@@ -230,12 +230,85 @@ npm run dev → http://localhost:4111 → Workflows 标签页 → climate-workfl
 - 运行中每个 step 实时变色（running → success / failed）
 - 真实运行结果里能看到 `steps` 里**只有走的那一路**（没有 cold-alert/comfort）——这就是"确定性"
 
-## 九、总结
+## 九、Workflow State：在步骤之间保存共享数据
+
+前面的 `inputData` 和 `return` 解决的是“当前步骤把什么交给下一步”。但有些数据需要在整个 Workflow 运行期间持续保存，例如整理行李时的物品清单、操作记录和当前状态。这时使用 Workflow State。
+
+本次学习使用了 `state-workflow` 这个整理行李的例子：
+
+```text
+开始整理 -> 装进行李 -> 完成检查
+    |          |          |
+    +----------+----------+
+       共享 State 持续累积
+```
+
+三个概念可以这样记：
+
+```text
+stateSchema：规定 State 的结构，像说明书
+state：当前这一次运行中的实际共享数据
+setState：更新并保存共享 State 的函数
+```
+
+`stateSchema` 不是实际数据。Mastra 会在 Workflow 运行时创建 State，并在执行 Step 时注入 `state` 和 `setState`：
+
+```typescript
+execute: async ({ inputData, state, setState }) => {
+  const checklist = [...state.checklist, {
+    step: 'pack-items',
+    message: `已经装好 ${inputData.items.length} 件物品`,
+  }];
+
+  await setState({
+    status: 'checking',
+    packedItems: inputData.items,
+    checklist,
+  });
+
+  return { itemCount: inputData.items.length };
+}
+```
+
+这里有两条不同的数据通道：
+
+```text
+上一步 return 的结果 -> 下一步 inputData
+setState 保存的结果  -> 下一步 state
+```
+
+`return` 不会自动替代 State，State 也不会因为 `items` 是数组就自动循环。只有 `.foreach()` 才会对数组逐项执行步骤。
+
+最终可以把它们理解成：`inputData` 是步骤正在处理的材料，`return` 是步骤交出的结果，`state` 是整个流程共用的工作记录。
+
+## 十、今天已经覆盖的运行能力
+
+除了控制流，今天还实际学习了几个 Workflow 运行时能力：
+
+```text
+Storage：保存 Workflow 运行状态、步骤结果和暂停信息
+Observability：在 Studio Trace 中观察每个步骤的执行状态
+retries：步骤失败后的自动重试次数
+retryCount：当前已经重试了几次，第一次执行时为 0
+suspend/resume：暂停等待外部结果，再从原来的位置继续
+foreach：对数组逐项执行步骤，但不是普通 .then() 的默认行为
+```
+
+其中 `suspend/resume` 的三个数据概念是：
+
+```text
+suspendSchema：暂停时交给外部查看的数据格式
+resumeSchema：恢复时允许外部传回的数据格式
+resumeData：恢复运行时步骤实际收到的数据
+```
+
+## 十一、总结
 
 ```
 Workflow 的核心：
 ├── step = 最小工作单元（inputSchema / outputSchema / execute）
 ├── 四种控制流：顺序 .then() / 并行 .parallel() / 整形 .map() / 分支 .branch()
+├── 共享状态：stateSchema / state / setState
 ├── schema 咬合：每步的 output 必须能喂给下一步
 └── 确定性：相同输入 → 相同输出（和 Agent 的柔性推理互补）
 ```
@@ -244,9 +317,9 @@ Workflow 的核心：
 
 ## 技术边界
 
-**已确认**：Workflow vs Agent 定位 / 四种控制流 / schema 咬合 / 并行输出按 id 分组 / 分支只走一路。
+**已经覆盖**：Workflow vs Agent 定位 / 四种控制流 / `.foreach()` / Workflow State / Storage / Observability / 错误重试 / suspend-resume 的基本概念。
 
-**待深入**：`.foreach()` 与并发控制、`.dountil()`/`.dowhile()` 循环、step 内调 Agent、suspend/resume 挂起恢复、Workflow 的持久化与错误重试（后续系列覆盖）。
+**接下来值得深入**：`.dountil()` / `.dowhile()` 循环、`.foreach()` 的结果聚合与并发控制、Step 内调用 Agent 或 Tool、非重试错误和从中间步骤恢复等更复杂的可靠性机制。
 
 ---
 
