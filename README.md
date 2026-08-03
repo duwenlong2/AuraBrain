@@ -16,10 +16,12 @@ AuraBrain/
 │   └── blog/        ← 系列博客（编号和 examples 一一对应）
 │       ├── 00-为什么选Mastra.md   ← 系列开篇（调研 + 规划）
 │       ├── 01-basic-agent.md      ← 对应 examples/01
-│       └── 02-mini-agent.md       ← 对应 examples/02
+│       ├── 02-mini-agent.md       ← 对应 examples/02
+│       └── 03-workflow.md         ← 对应 examples/03
 ├── examples/        ← 学习示例（从 helloworld 起步，最小 MVP）
 │   ├── 01-basic-agent   ← 官方模板（已加注释讲解）
-│   └── 02-mini-agent    ← 极简示例（从 0 手写）
+│   ├── 02-mini-agent    ← 极简 Agent（从 0 手写：工具/记忆/存储/观测）
+│   └── 03-workflow      ← 极简 Workflow（从 0 手写：顺序/并行/分支）
 └── mastra/          ← Mastra 框架源码（独立拉取，见下）
 ```
 
@@ -47,11 +49,13 @@ npm run dev            # 打开 http://localhost:4111 访问 Mastra Studio
 ```
 blog/00-为什么选Mastra.md   → 系列开篇（为什么学、怎么学）
 blog/01-basic-agent.md      → examples/01-basic-agent（官方模板探索）
-blog/02-mini-agent.md       → examples/02-mini-agent（极简示例）
+blog/02-mini-agent.md       → examples/02-mini-agent（极简 Agent：工具/记忆/存储/观测）
+blog/03-workflow.md         → examples/03-workflow（极简 Workflow：顺序/并行/分支）
 ```
 
 - 从 [00 · 为什么选 Mastra](docs/blog/00-为什么选Mastra.md) 开始看
-- 按博客编号逐步学习（01、02...），每篇对应一个示例
+- 按博客编号逐步学习（01、02、03...），每篇对应一个示例
+- 想"对着源码学"：看 [Mastra 源码导读](docs/mastra-source-guide.md)（博客知识点 ↔ 源码文件索引）
 
 ## License
 

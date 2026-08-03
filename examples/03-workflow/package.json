@@ -1,0 +1,21 @@
+{
+  "name": "workflow-demo",
+  "version": "0.1.0",
+  "description": "Mastra 极简示例：1 个 Workflow（顺序 / 并行 / 分支 / 数据整形）",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "mastra dev",
+    "build": "mastra build",
+    "start": "mastra start"
+  },
+  "dependencies": {
+    "@mastra/core": "latest",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@types/node": "latest",
+    "mastra": "latest",
+    "typescript": "^6.0.3"
+  }
+}
