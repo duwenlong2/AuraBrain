@@ -52,10 +52,6 @@ const vectorStore = new LibSQLVector({
   url: 'file:./mastra.db',
 });
 
-// ★ embedding 模型：把文字转成向量
-//   fastembed.smallV2 = 本地 bge-small-en-v1.5 模型（无需 API key，完全本地运行）
-//   对中文也能工作；需要更高精度时换 fastembed.baseV2 或远程 openai embedding
-
 export const semanticRecallAgent = new Agent({
   id: 'semantic-recall-agent',
   name: '语义召回 Agent',
@@ -71,6 +67,8 @@ export const semanticRecallAgent = new Agent({
     // ★ 向量存储（语义召回必须）
     vector: vectorStore,
     // ★ embedding 模型：本地运行，无需 API key
+    //   注意：新版 @mastra/fastembed 的 API 是 fastembed.smallV2 / fastembed.baseV2
+    //   不是 fastembed('fastembed/bge-small-zh')（那是旧版写法，会报错）
     embedder: fastembed.smallV2,
     options: {
       // ★ 语义召回配置

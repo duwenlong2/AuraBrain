@@ -44,7 +44,7 @@ export const conversationHistoryAgent = new Agent({
     options: {
       // 对话历史：带上最近 6 条消息
       // 试试改成 2，然后连续说 3 件事再问第一件，看是不是忘了
-      lastMessages: 6,
+      lastMessages: 2,
 
       // 自动生成对话标题（方便在 Studio 左侧列表区分）
       generateTitle: true,
