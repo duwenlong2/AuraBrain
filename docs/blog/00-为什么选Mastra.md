@@ -84,7 +84,7 @@ LangGraph → 权衡：生态最大、招聘最多，但 Python 为主，
 | 博客 | 主题 | examples 对应 |
 |------|------|--------------|
 | 00 | 为什么选 Mastra（本片，系列开篇） | - |
-| 01 | 官方模板初探 | 01-basic-agent |
+| 01 | Agent 基础示例 | 01-basic-agent |
 | 02 | 从 0 写极简 Agent（工具/记忆/存储/观测） | 02-mini-agent |
 | 03 | 从 0 写极简 Workflow（顺序/并行/分支） | 03-workflow |
 | ... | 后续按进度展开 | examples/04-... |

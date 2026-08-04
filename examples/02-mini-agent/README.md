@@ -2,7 +2,7 @@
 
 Mastra **极简示例**：从 0 手写，逐行能看懂的最小可运行项目。
 
-> 对比 `01-basic-agent`（官方模板，带 workspace/memory/signals 一大堆），本项目**故意砍到最少**，用于建立"最小可运行"的心智模型。
+> 对比 `01-basic-agent`（我们自己编写的、包含较多 Harness 能力的学习示例），本项目**故意砍到最少**，用于建立“最小可运行”的心智模型。
 > 已逐步丰富：**1 Agent + 2 工具 + Memory + Storage + Observability**。
 
 ## 快速开始
