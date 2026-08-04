@@ -23,18 +23,20 @@ import {
   SensitiveDataFilter,      // 敏感数据过滤：API key 等不记录到日志
 } from '@mastra/observability';
 import { agent } from './agents/agent';                    // 通用助手 Agent（web_fetch 等 4+ 工具）
+import { deviceAgent } from './agents/device-agent';       // 设备助手 Agent（只有 device_control 工具）
 import { helloAgent } from './agents/hello-agent';         // 天气助手 Agent（只有 weather_query 工具）
 import { startScheduleTool, stopScheduleTool } from './tools/schedule-tools'; // 定时任务工具（创建/暂停）
 import { webFetchTool } from './tools/web-fetch-tool';     // 网页抓取工具（Agent 可抓任意网页）
 import { weatherTool } from './tools/weather-tool';        // 天气工具（目前是模拟假数据）
+import { deviceControlTool } from './tools/device-control-tool'; // 设备控制工具（模拟智能家居开关）
 
 // 创建 Mastra 实例：整个应用的核心对象
 export const mastra = new Mastra({
   // ★ 注册 Agent：key 是 Studio 里显示和路由用的名字
-  agents: { agent, helloAgent },
+  agents: { agent, deviceAgent, helloAgent },
 
   // ★ 注册工具：这些工具会被所有 Agent 共享使用
-  tools: { startScheduleTool, stopScheduleTool, webFetchTool, weatherTool },
+  tools: { startScheduleTool, stopScheduleTool, webFetchTool, weatherTool, deviceControlTool },
 
   // 存储配置：不同数据存不同数据库（复合存储）
   storage: new MastraCompositeStore({

@@ -1,0 +1,15 @@
+# 依赖
+node_modules/
+
+# 环境变量（含密钥，不提交）
+.env
+
+# Mastra 构建产物
+.mastra/
+
+# 数据库文件
+*.db
+*.duckdb
+
+# 系统文件
+.DS_Store
