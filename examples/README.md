@@ -2,6 +2,17 @@
 
 这里的目标不是把 Mastra 的每个 API 都背下来，而是用几个很小的例子，判断每个能力什么时候有用。
 
+## 当前项目编号约定
+
+编号只用于 Mastra 能力模块，不用于 TypeScript 补课：
+
+```text
+04-memory     Memory、Storage、Observational Memory
+05-workspace  Workspace、Filesystem、Sandbox、Approval、Parallel Search MCP
+```
+
+TypeScript 语法、类型和 Zod 等补充练习单独使用 `extra-ts-*` 或 `appendix-*` 命名，不占用上面的模块编号。这样可以把“学习 Mastra 的主线”和“解决代码阅读所需的 TypeScript 问题”分开记录。
+
 ## Mastra 的大块知识
 
 可以先分成三层：

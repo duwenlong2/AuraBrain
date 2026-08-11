@@ -26,8 +26,8 @@
  *
  * ⚠️ 重要注意：
  *   默认 Observer/Reflector 模型是 google/gemini-2.5-flash。
- *   我们没有 Gemini 的 key，所以这里显式指定用 DeepSeek，
- *   并且把触发阈值调小，方便在 Studio 里快速看到效果。
+ *   本示例显式指定 Azure deployment，并把触发阈值调小，
+ *   方便在 Studio 里快速看到效果。
  *
  * 体验方法（Studio）：
  *   1. 多轮对话，比如聊项目背景、偏好、家庭成员
@@ -36,6 +36,8 @@
  */
 import { Agent } from '@mastra/core/agent';      // Agent 类
 import { Memory } from '@mastra/memory';          // 记忆系统
+
+import { azureModel } from '../models/azure';
 
 export const observationalMemoryAgent = new Agent({
   id: 'observational-memory-agent',
@@ -46,7 +48,7 @@ export const observationalMemoryAgent = new Agent({
 用户会和你聊一些日常话题（工作、家庭、爱好、计划）。
 自然地交流即可，不要刻意提醒用户"我会记住"。用中文回复。`,
 
-  model: 'deepseek/deepseek-v4-flash',
+  model: azureModel,
 
   memory: new Memory({
     options: {
@@ -54,14 +56,16 @@ export const observationalMemoryAgent = new Agent({
       observationalMemory: {
         // 开启
         enabled: true,
-        // 跨对话保留观察（resource = 一个用户）
-        scope: 'resource',
-        // 指定 Observer/Reflector 都用 DeepSeek（我们没有 Gemini key）
-        model: 'deepseek/deepseek-v4-flash',
+        // 先使用线程级观察验证 Observer；当前版本 resource 级同步观察存在兼容限制
+        scope: 'thread',
+        // Observer/Reflector 使用 Azure 部署模型
+        model: azureModel,
         observation: {
           // 触发观察的未观察消息 token 数
           // 默认 30000，这里调小，方便快速看到效果
           messageTokens: 2000,
+          // thread scope 支持异步 buffering；单步 Studio 请求依赖它触发 Observer
+          bufferTokens: 0.2,
         },
       },
       generateTitle: true,
