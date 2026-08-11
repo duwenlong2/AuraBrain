@@ -1,0 +1,31 @@
+{
+  "compilerOptions": {
+    "lib": ["ES2023"],
+    "composite": false,
+    "declaration": false,
+    "declarationMap": false,
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "inlineSources": false,
+    "isolatedModules": true,
+    "noUnusedLocals": false,
+    "noUnusedParameters": false,
+    "noFallthroughCasesInSwitch": true,
+    "skipLibCheck": true,
+    "strict": false,
+    "target": "ES2023",
+    "module": "ES2023",
+    "moduleResolution": "bundler",
+    "moduleDetection": "native",
+    "useImportMeta": true,
+    "jsx": "react-jsx",
+    "resolveJsonEnabled": true,
+    "types": ["node"],
+    "outDir": "dist",
+    "sourceMap": true,
+    "forceRebuild": true,
+    "useUnknownInCatchVariables": true
+  },
+  "include": ["src/**/*.ts"],
+  "exclude": ["node_modules", "dist"]
+}

@@ -1,0 +1,23 @@
+{
+  "name": "06-agent-loop",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Mastra Agent Loop 学习示例",
+  "type": "module",
+  "scripts": {
+    "start": "mastra start"
+  },
+  "dependencies": {
+    "@mastra/core": "^1.56.0",
+    "@mastra/libsql": "^1.19.0",
+    "@mastra/memory": "^1.25.0",
+    "@mastra/observability": "^1.16.4",
+    "@ai-sdk/openai": "^4.0.8",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@types/node": "latest",
+    "mastra": "^1.22.0",
+    "typescript": "^7.0.2"
+  }
+}
