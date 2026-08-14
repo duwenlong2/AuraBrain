@@ -9,6 +9,8 @@
 ```text
 04-memory     Memory、Storage、Observational Memory
 05-workspace  Workspace、Filesystem、Sandbox、Approval、Parallel Search MCP
+06-agent-loop 通用 Agent 外壳、动态工具选择、Agent Loop、maxSteps、Iteration Hook
+07-durable-agent Durable Agent、runId、可恢复流、任务执行状态
 ```
 
 TypeScript 语法、类型和 Zod 等补充练习单独使用 `extra-ts-*` 或 `appendix-*` 命名，不占用上面的模块编号。这样可以把“学习 Mastra 的主线”和“解决代码阅读所需的 TypeScript 问题”分开记录。
