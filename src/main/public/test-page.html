@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SightTwin · 邮件/日历接入测试</title>
+<style>
+  :root { --bg:#101316; --panel:#171c1d; --panel-strong:#1d2424; --border:#34403e; --text:#f0f2e9; --dim:#9aa7a0; --accent:#c8f169; --accent-ink:#18200f; --ok:#72d6a0; --err:#ff8177; --warn:#f2bd69; --coral:#f18f78; }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { background:radial-gradient(circle at 8% 0%, #27302c 0, transparent 33%), var(--bg); color:var(--text); font-family:'Aptos','Segoe UI','Microsoft YaHei',sans-serif; padding:28px clamp(16px, 4vw, 56px); min-height:100vh; }
+  h1 { font-size:clamp(24px, 3vw, 38px); letter-spacing:0; line-height:1.1; margin-bottom:8px; font-weight:700; }
+  .sub { color:var(--dim); font-size:13px; margin-bottom:26px; line-height:1.6; max-width:900px; }
+  .grid { display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:18px; max-width:1420px; margin:0 auto; }
+  .card { background:color-mix(in srgb, var(--panel) 94%, transparent); border:1px solid var(--border); border-radius:8px; padding:20px; box-shadow:0 18px 45px #0000001c; }
+  .card h2 { font-size:16px; margin-bottom:7px; display:flex; align-items:center; gap:8px; line-height:1.35; }
+  .badge { font-size:11px; padding:3px 8px; border-radius:999px; background:#c8f1691c; color:var(--accent); white-space:nowrap; }
+  .badge.alt { background:#f2bd691c; color:var(--warn); }
+  .desc { color:var(--dim); font-size:12px; margin-bottom:14px; line-height:1.7; }
+  button { background:var(--panel-strong); color:var(--text); border:1px solid var(--border); border-radius:5px; padding:8px 13px; font-size:13px; cursor:pointer; margin:3px 6px 3px 0; transition:background .18s, border-color .18s, transform .18s; }
+  button:hover { background:#29332f; border-color:var(--accent); transform:translateY(-1px); }
+  button.primary { background:var(--accent); color:var(--accent-ink); border-color:var(--accent); font-weight:650; }
+  button:disabled { opacity:.5; cursor:not-allowed; }
+  .status { margin:10px 0; padding:8px 12px; border-radius:6px; font-size:13px; display:none; }
+  .status.info { display:block; background:#c8f16912; border:1px solid #c8f1694d; }
+  .status.ok { display:block; background:#72d6a014; border:1px solid #72d6a04d; }
+  .status.err { display:block; background:#ff817714; border:1px solid #ff81774d; }
+  .result { margin-top:12px; }
+  .item { border:1px solid var(--border); border-radius:6px; padding:11px 13px; margin-bottom:8px; background:#0d111766; font-size:13px; }
+  .item .head { display:flex; justify-content:space-between; gap:8px; margin-bottom:4px; }
+  .item .subj { font-weight:600; }
+  .item .meta { color:var(--dim); font-size:12px; }
+  .item .body { margin-top:6px; color:#c9d1d9; white-space:pre-wrap; max-height:160px; overflow:auto; font-size:12px; line-height:1.5; }
+  .tag { font-size:11px; padding:1px 6px; border-radius:4px; }
+  .tag.unread { background:#c8f1691c; color:var(--accent); }
+  .tag.attach { background:#f2bd691c; color:var(--warn); }
+  .tag.conflict { background:#ff81771c; color:var(--err); }
+  .tag.online { background:#72d6a01c; color:var(--ok); }
+  pre.json { background:#010409; border:1px solid var(--border); border-radius:6px; padding:10px; font-size:11px; overflow:auto; max-height:280px; margin-top:8px; color:#8b949e; }
+  .ev { display:flex; gap:10px; align-items:baseline; }
+  .ev .time { color:var(--accent); font-variant-numeric:tabular-nums; white-space:nowrap; font-size:12px; }
+  a { color:var(--accent); }
+  .full { grid-column:1 / -1; }
+  code { background:#21262d; padding:1px 5px; border-radius:4px; font-size:12px; }
+  hr { border-color:var(--border) !important; opacity:.7; }
+  @media (max-width: 760px) {
+    body { padding:20px 14px; }
+    .grid { grid-template-columns:1fr; gap:14px; }
+    .card { padding:16px; }
+    .card h2 { align-items:flex-start; flex-wrap:wrap; }
+    button { margin-right:4px; }
+  }
+</style>
+</head>
+<body>
+  <h1>👁️ SightTwin · 邮件 / 日历接入测试</h1>
+<div class="sub">WinUI 3 + WebView2 桌面壳：经典 Outlook 本机 MAPI 为主，Graph 与 IMAP 保留为可选适配器 · 数据源：duwl2@lenovo.com</div>
+
+<div class="grid">
+  <!-- 路线 A：Graph -->
+  <div class="card">
+    <h2>🅰️ Microsoft Graph <span class="badge">可选 · 云端适配器</span></h2>
+    <div class="desc">邮箱 + 日历一次全拿。设备码登录：发起后在浏览器输入一次性 code，用 Lenovo 域账号登录即可，无需应用密码、无需常驻 Outlook。</div>
+    <div id="graph-status"></div>
+    <div id="graph-login-box" style="display:none; margin:10px 0;">
+      <div style="font-size:13px; line-height:1.8;">
+        打开 <a id="graph-verify-url" target="_blank" rel="noopener">登录页面</a><br>
+        输入 code：<b id="graph-user-code" style="font-size:18px; letter-spacing:2px;"></b>
+      </div>
+    </div>
+    <button class="primary" id="btn-graph-login" onclick="graphLogin()">发起设备码登录</button>
+    <button id="btn-graph-logout" onclick="graphLogout()">退出登录</button>
+    <hr style="border-color:var(--border); margin:12px 0;">
+    <button onclick="runGraph('test')">1️⃣ 测试连接</button>
+    <button onclick="runGraph('emails')">2️⃣ 最近 10 封邮件</button>
+    <button onclick="runGraph('today')">3️⃣ 今日日程</button>
+    <button onclick="runGraph('week')">4️⃣ 未来 7 天日程</button>
+    <div class="result" id="graph-result"></div>
+  </div>
+
+  <!-- 路线 B：IMAP -->
+  <div class="card">
+    <h2>🅱️ IMAP <span class="badge alt">已实测 · 被租户禁用</span></h2>
+    <div class="desc">移植自 OpenClaw <code>imap-smtp-email</code> skill（imapflow + mailparser）。<b>已确认：Lenovo 租户禁用 IMAP basic auth</b>（服务器返回 <code>AUTHENTICATE failed. Provided authentication mechanism is not supported</code>，仅支持 OAuth2）。保留此卡片用于复测。</div>
+    <button class="primary" onclick="runImap('test')">1️⃣ 测试连接</button>
+    <button onclick="runImap('mailboxes')">2️⃣ 列出邮箱文件夹</button>
+    <button onclick="runImap('emails')">3️⃣ 最近 10 封邮件</button>
+    <div class="result" id="imap-result"></div>
+  </div>
+
+  <!-- 路线 C：本机 MAPI -->
+  <div class="card">
+    <h2>🅲 经典 Outlook MAPI <span class="badge">当前主路线 · WinUI Bridge</span></h2>
+    <div class="desc">通过 WinUI 3 C# 壳的 WebView2 Bridge 调用经典 Outlook COM/MAPI，读取已登录 Profile 的本机数据。<b>不走 Graph、不需要应用密钥</b>。浏览器开发模式仍通过 Mastra API 调用。</div>
+    <button class="primary" onclick="runOutlook('test')">1️⃣ 测试连接</button>
+    <button onclick="runOutlook('emails')">2️⃣ 最近 7 天邮件（10 封）</button>
+    <button onclick="runOutlook('events')">3️⃣ 未来 7 天日程</button>
+    <div class="result" id="outlook-result"></div>
+  </div>
+
+  <!-- 实时推送 -->
+  <div class="card">
+    <h2>📡 实时推送 <span class="badge">谁发了新邮件/新日程，这里会弹出来</span></h2>
+    <div class="desc">开发模式使用 Mastra watcher 推送新增邮件/日程；桌面壳的 C# Bridge 已预留统一消息协议。邮件 NewMailEx 已独立验证，日历 ItemAdd 仍待接入，当前推送暂用轮询兜底。</div>
+    <button class="primary" id="push-start-btn" onclick="pushStart()">▶ 启动推送</button>
+    <button id="push-stop-btn" onclick="pushStop()" disabled>⏹ 停止</button>
+    <span id="push-state" class="meta" style="font-size:12px;color:var(--dim); margin-left:8px;">未启动</span>
+    <div class="result" id="push-feed">
+      <div class="item meta">（尚未启动推送）</div>
+    </div>
+  </div>
+
+  <!-- Tool 原始输出 -->
+  <div class="card full">
+    <h2>🔧 Tool 原始输出（证明 Mastra tools 层走通）</h2>
+    <div class="desc">上方按钮实际都是调用 <code>POST /test-api/run</code> → <code>tool.execute(input)</code>，下面是原始 JSON。后续 Agent（邮件摘要 / 任务识别）将挂同一组 tools。</div>
+    <pre class="json" id="raw-json">（暂无输出）</pre>
+  </div>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+function show(id, cls, html) { const el = $(id); el.className = cls; el.innerHTML = html; }
+function raw(obj) { $('raw-json').textContent = JSON.stringify(obj, null, 2); }
+
+async function callTool(tool, input = {}) {
+  if (window.chrome?.webview && tool.startsWith('outlook-')) {
+    const desktopType = { 'outlook-test-connection': 'outlook.testConnection', 'outlook-recent-emails': 'outlook.getRecentEmails', 'outlook-get-events': 'outlook.getEvents' }[tool];
+    if (desktopType) {
+      const requestId = crypto.randomUUID();
+      const data = await new Promise((resolve, reject) => {
+        const timeout = setTimeout(() => reject(new Error('桌面 Bridge 请求超时')), 30000);
+        const onMessage = event => {
+          const response = event.data;
+          if (!response || response.type !== 'response' || response.requestId !== requestId) return;
+          clearTimeout(timeout);
+          window.chrome.webview.removeEventListener('message', onMessage);
+          response.ok ? resolve(response.data) : reject(new Error(response.error || 'Bridge 请求失败'));
+        };
+        window.chrome.webview.addEventListener('message', onMessage);
+        window.chrome.webview.postMessage({ type: desktopType, requestId, payload: input });
+      });
+      raw({ ok: true, tool, result: data, source: 'winui-bridge' });
+      return data;
+    }
+  }
+  const resp = await fetch('/test-api/run', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ tool, input })
+  });
+  const data = await resp.json();
+  raw(data);
+  if (data.ok) return data.result;
+  throw new Error(data.error || '未知错误');
+}
+
+// ---------- Graph ----------
+let pollTimer = null;
+async function graphLogin() {
+  show('graph-status', 'info', '⏳ 正在发起设备码登录…');
+  const r = await (await fetch('/test-api/graph-login', { method: 'POST' })).json();
+  if (!r.ok) { show('graph-status', 'err', '❌ ' + r.error); return; }
+  $('graph-login-box').style.display = 'block';
+  $('graph-verify-url').href = r.verification_uri;
+  $('graph-user-code').textContent = r.user_code;
+  show('graph-status', 'info', '🔐 ' + r.message + '（页面每 5 秒轮询一次）');
+  window.open(r.verification_uri, '_blank');
+  clearInterval(pollTimer);
+  pollTimer = setInterval(pollGraph, 5000);
+}
+async function pollGraph() {
+  const r = await (await fetch('/test-api/graph-poll', { method: 'POST' })).json();
+  if (r.ok) {
+    clearInterval(pollTimer);
+    show('graph-status', 'ok', '✅ ' + r.message);
+    $('graph-login-box').style.display = 'none';
+    checkGraphStatus();
+  } else if (r.pending) {
+    show('graph-status', 'info', '⏳ ' + (r.message || '等待登录…'));
+  } else {
+    clearInterval(pollTimer);
+    show('graph-status', 'err', '❌ ' + (r.error || '登录失败'));
+  }
+}
+async function graphLogout() {
+  await fetch('/test-api/graph-logout', { method: 'POST' });
+  checkGraphStatus();
+  show('graph-status', 'ok', '已退出');
+}
+async function checkGraphStatus() {
+  const r = await (await fetch('/test-api/graph-status')).json();
+  if (r.loggedIn) {
+    show('graph-status', 'ok', '✅ 已登录：<b>' + r.user.displayName + '</b> &lt;' + r.user.userPrincipalName + '&gt; · token 有效至 ' + new Date(r.expiresAt).toLocaleString());
+  } else if (r.clientIdConfigured) {
+    show('graph-status', 'info', 'ℹ️ 尚未登录（client_id 已配置）。点「发起设备码登录」开始。');
+  } else {
+    show('graph-status', 'err', '❌ Graph Client ID 为空。请先在 AuraBrain 配置页完成设置，然后重试。');
+  }
+}
+async function runGraph(kind) {
+  const box = 'graph-result'; $(box).innerHTML = '<div class="item meta">⏳ 请求中…</div>';
+  try {
+    let result;
+    if (kind === 'test') { renderText(box, await callTool('graph-test-connection')); }
+    else if (kind === 'emails') { renderGraphEmails(box, await callTool('graph-recent-emails', { limit: 10 })); }
+    else if (kind === 'today') { renderEvents(box, await callTool('graph-today-events')); }
+    else if (kind === 'week') { renderEvents(box, await callTool('graph-week-events')); }
+  } catch (e) {
+    $(box).innerHTML = '<div class="item" style="border-color:var(--err)">❌ ' + e.message + '</div>';
+  }
+}
+
+// ---------- 路线 C：本机 MAPI ----------
+async function runOutlook(kind) {
+  const box = 'outlook-result'; $(box).innerHTML = '<div class="item meta">⏳ 请求中…（首次调用需启动 MAPI 会话，约 10-30 秒，请耐心等待）</div>';
+  try {
+    if (kind === 'test') { renderText(box, await callTool('outlook-test-connection')); }
+    else if (kind === 'emails') { renderOutlookEmails(box, await callTool('outlook-recent-emails', { limit: 10, days: 7 })); }
+    else if (kind === 'events') { renderEvents(box, (await callTool('outlook-get-events', { days: 7 }))); }
+  } catch (e) {
+    $(box).innerHTML = '<div class="item" style="border-color:var(--err)">❌ ' + e.message + '</div>';
+  }
+}
+
+// ---------- IMAP ----------
+async function runImap(kind) {
+  const box = 'imap-result'; $(box).innerHTML = '<div class="item meta">⏳ 请求中…</div>';
+  try {
+    if (kind === 'test') { renderText(box, await callTool('imap-test-connection')); }
+    else if (kind === 'mailboxes') { renderText(box, await callTool('imap-list-mailboxes')); }
+    else if (kind === 'emails') { renderImapEmails(box, await callTool('imap-recent-emails', { limit: 10 })); }
+  } catch (e) {
+    $(box).innerHTML = '<div class="item" style="border-color:var(--err)">❌ ' + e.message + '</div>';
+  }
+}
+
+// ---------- 渲染 ----------
+function esc(s) { const d = document.createElement('div'); d.textContent = s ?? ''; return d.innerHTML; }
+function fmtDate(s) { return s ? new Date(s).toLocaleString('zh-CN', { hour12: false }) : ''; }
+function renderText(box, r) {
+  $(box).innerHTML = (r && r.ok === false)
+    ? '<div class="item" style="border-color:var(--err)">❌ ' + esc(r.message) + '</div>'
+    : '<div class="item">✅ ' + esc(r.message) + '</div>';
+}
+function renderGraphEmails(box, mails) {
+  if (!Array.isArray(mails) || mails.length === 0) { $(box).innerHTML = '<div class="item meta">（空）</div>'; return; }
+  $(box).innerHTML = mails.map(m =>
+    '<div class="item">' +
+      '<div class="head"><span class="subj">' + esc(m.subject || '(无主题)') + '</span>' +
+      '<span>' + (m.isRead ? '' : '<span class="tag unread">未读</span>') + ' ' + (m.hasAttachments ? '<span class="tag attach">📎</span>' : '') + '</span></div>' +
+      '<div class="meta">发件人：' + esc(m.from) + ' · ' + fmtDate(m.receivedDateTime) + '</div>' +
+      '<div class="body">' + esc(m.bodyPreview) + '</div>' +
+    '</div>').join('');
+}
+// ---------- 实时推送（SSE） ----------
+let pushES = null;
+let pushItems = 0;
+
+function pushStart() {
+  pushItems = 0;
+  $('push-feed').innerHTML = '<div class="item meta">⏳ 正在启动 watcher（首次约 10 秒，需建立 MAPI 会话…）</div>';
+  $('push-state').textContent = '启动中…';
+  $('push-start-btn').disabled = true;
+  $('push-stop-btn').disabled = true;
+  callToolRaw('/test-api/push-start', { interval: 10 }).then(r => {
+    $('push-state').textContent = r.ok ? 'watcher 运行中' : ('启动失败：' + r.message);
+    $('push-start-btn').disabled = !r.ok;
+    if (r.ok) pushConnect();
+  }).catch(e => {
+    $('push-state').textContent = '启动失败：' + e.message;
+    $('push-start-btn').disabled = false;
+  });
+}
+
+function pushConnect() {
+  if (pushES) pushES.close();
+  pushES = new EventSource('/test-api/push-stream');
+  pushES.onmessage = ev => {
+    let d;
+    try { d = JSON.parse(ev.data); } catch { return; }
+    if (d.type === 'hello' || d.type === 'heartbeat') return;
+    if (d.type === 'status') {
+      $('push-state').textContent = d.message;
+      if (!pushItems) $('push-feed').innerHTML = '<div class="item meta">✅ ' + esc(d.message) + '</div>';
+      $('push-stop-btn').disabled = /已停止|未运行/.test(d.message);
+    } else if (d.type === 'watcher-exited') {
+      $('push-state').textContent = d.message;
+      $('push-start-btn').disabled = false;
+      $('push-stop-btn').disabled = true;
+      pushAddItem('<div class="item" style="border-color:var(--err)">⚠️ ' + esc(d.message) + '</div>', true);
+    } else if (d.type === 'mail' || d.type === 'event') {
+      pushAddItem(renderPushItem(d), true);
+      pushItems++;
+    }
+  };
+  pushES.onerror = () => { $('push-state').textContent = '连接断开（服务器重启？重新点启动）'; pushES.close(); pushES = null; $('push-start-btn').disabled = false; };
+}
+
+function renderPushItem(d) {
+  if (d.type === 'mail') {
+    return '<div class="item" style="border-color:var(--ok)">📧 <b>新邮件</b>：' + esc(d.subject || '(无主题)') +
+      '<div class="meta">' + esc(d.from) + ' &lt;' + esc(d.fromEmail) + '&gt; · ' + fmtDate(d.received) + '</div></div>';
+  }
+  return '<div class="item" style="border-color:var(--ok)">📅 <b>新日程</b>：' + esc(d.subject) +
+    '<div class="meta">' + fmtDate(d.start) + ' → ' + fmtDate(d.end) + ' · ' + esc(d.location || '无地点') + (d.organizer ? ' · ' + esc(d.organizer) : '') + '</div></div>';
+}
+
+function pushAddItem(html, prepend) {
+  const feed = $('push-feed');
+  if (feed.querySelector('.item.meta')) feed.innerHTML = '';
+  const tmp = document.createElement('div');
+  tmp.innerHTML = html;
+  if (prepend) feed.insertBefore(tmp.firstChild, feed.firstChild);
+  else feed.appendChild(tmp.firstChild);
+  while (feed.children.length > 50) feed.removeChild(feed.lastChild);
+}
+
+function pushStop() {
+  callToolRaw('/test-api/push-stop', {}).then(r => { $('push-state').textContent = r.message; $('push-start-btn').disabled = false; $('push-stop-btn').disabled = true; });
+}
+
+function callToolRaw(url, body) {
+  return fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }).then(r => r.json());
+}
+
+function renderOutlookEmails(box, mails) {
+  if (!Array.isArray(mails) || mails.length === 0) { $(box).innerHTML = '<div class="item meta">（空）</div>'; return; }
+  $(box).innerHTML = mails.map(m =>
+    '<div class="item">' +
+      '<div class="head"><span class="subj">' + esc(m.subject || '(无主题)') + '</span>' +
+      '<span>' + (m.unread ? '<span class="tag unread">未读</span>' : '') + ' ' + (m.hasAttach ? '<span class="tag attach">📎</span>' : '') + '</span></div>' +
+      '<div class="meta">' + esc(m.from) + ' &lt;' + esc(m.fromEmail) + '&gt; · ' + fmtDate(m.received) + '</div>' +
+      '<div class="body">' + esc(m.body || '(无正文)') + '</div>' +
+      '<div class="meta" style="margin-top:4px">entryId: <code>' + esc(m.entryId) + '</code></div>' +
+    '</div>').join('');
+}
+function renderImapEmails(box, mails) {
+  if (!Array.isArray(mails) || mails.length === 0) { $(box).innerHTML = '<div class="item meta">（空）</div>'; return; }
+  $(box).innerHTML = mails.map(m =>
+    '<div class="item">' +
+      '<div class="head"><span class="subj">UID ' + m.uid + ' · ' + esc(m.subject) + '</span>' +
+      '<span>' + (m.unread ? '<span class="tag unread">未读</span>' : '') + ' ' + (m.attachments && m.attachments.length ? '<span class="tag attach">📎 ' + m.attachments.length + '</span>' : '') + '</span></div>' +
+      '<div class="meta">' + esc(m.from) + ' · ' + fmtDate(m.date) + '</div>' +
+      '<div class="body">' + esc(m.snippet) + '</div>' +
+    '</div>').join('');
+}
+function renderEvents(box, events) {
+  if (!Array.isArray(events) || events.length === 0) { $(box).innerHTML = '<div class="item meta">（该时间段没有日程）</div>'; return; }
+  // 兼容路线 C（无 id 字段）：用 start+subject 作为冲突检测键
+  const key = e => e.id || (e.start + '|' + (e.subject || ''));
+  const sorted = [...events].sort((a, b) => (a.start || '').localeCompare(b.start || ''));
+  const conflictIds = new Set();
+  for (let i = 0; i < sorted.length; i++) for (let j = i + 1; j < sorted.length; j++) {
+    const a = new Date(sorted[i].start), b2 = new Date(sorted[i].end), c = new Date(sorted[j].start), d = new Date(sorted[j].end);
+    if (a < d && c < b2) { conflictIds.add(key(sorted[i])); conflictIds.add(key(sorted[j])); }
+  }
+  $(box).innerHTML = sorted.map(e =>
+    '<div class="item" ' + (conflictIds.has(key(e)) ? 'style="border-color:var(--err)"' : '') + '>' +
+      '<div class="ev"><span class="time">' + fmtDate(e.start) + ' → ' + fmtDate(e.end) + '</span>' +
+      '<span class="subj">' + esc(e.subject) + '</span>' +
+      (conflictIds.has(key(e)) ? '<span class="tag conflict">⚠️ 冲突</span>' : '') +
+      (e.isOnlineMeeting || e.online ? '<span class="tag online">Teams</span>' : '') + '</div>' +
+      '<div class="meta">' + (e.location ? '📍 ' + esc(e.location) : '') + (e.organizer ? ' · 组织者 ' + esc(e.organizer) : '') + '</div>' +
+    '</div>').join('');
+}
+
+checkGraphStatus();
+</script>
+</body>
+</html>

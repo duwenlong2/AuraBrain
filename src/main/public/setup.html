@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AuraBrain · 首次配置</title>
+<style>
+  :root { --ink:#eef3ed; --muted:#9daaa1; --bg:#0d1211; --panel:#151c19; --line:#2b3933; --lime:#c8f169; --lime-ink:#18220f; --cyan:#8edbd0; --danger:#ff9c8f; }
+  * { box-sizing:border-box; }
+  body { margin:0; min-height:100vh; color:var(--ink); background:radial-gradient(circle at 84% 8%, #28453b 0, transparent 27%), linear-gradient(135deg,#0d1211 0%,#111b17 55%,#0b1110 100%); font-family:'Aptos','Segoe UI','Microsoft YaHei',sans-serif; }
+  .shell { min-height:100vh; display:grid; grid-template-columns:260px minmax(0,780px); gap:clamp(32px,7vw,104px); align-items:center; width:min(1180px,calc(100% - 40px)); margin:auto; padding:56px 0; }
+  .brand { align-self:stretch; display:flex; flex-direction:column; justify-content:space-between; padding:12px 0; }
+  .mark { display:flex; align-items:center; gap:11px; font-weight:700; letter-spacing:.02em; }
+  .mark-icon { width:34px; height:34px; display:grid; place-items:center; border:1px solid #c8f16988; color:var(--lime); border-radius:10px; font-size:19px; background:#c8f16912; }
+  .eyebrow { margin:74px 0 15px; color:var(--lime); font-size:11px; letter-spacing:.16em; text-transform:uppercase; }
+  h1 { font-size:clamp(30px,4vw,52px); line-height:1.04; letter-spacing:-.02em; margin:0; max-width:420px; }
+  .intro { color:var(--muted); line-height:1.75; font-size:14px; max-width:390px; margin-top:20px; }
+  .footnote { color:#6f7d74; font-size:12px; line-height:1.6; max-width:210px; }
+  .panel { background:#131b18e8; border:1px solid var(--line); border-radius:14px; padding:30px; box-shadow:0 24px 80px #00000035; }
+  .panel-head { display:flex; justify-content:space-between; gap:20px; align-items:flex-start; padding-bottom:24px; border-bottom:1px solid var(--line); }
+  .panel-head h2 { margin:0 0 7px; font-size:21px; }
+  .panel-head p { margin:0; color:var(--muted); font-size:13px; line-height:1.6; }
+  .step { color:var(--lime); font-size:11px; white-space:nowrap; letter-spacing:.12em; }
+  form { padding-top:25px; }
+  .row { display:grid; grid-template-columns:1fr 1fr; gap:15px; }
+  label { display:block; color:#d6ded7; font-size:12px; margin-bottom:8px; }
+  input, select { width:100%; min-height:43px; padding:0 13px; color:var(--ink); background:#0b110f; border:1px solid var(--line); border-radius:7px; outline:none; font:inherit; font-size:13px; }
+  input:focus, select:focus { border-color:var(--lime); box-shadow:0 0 0 3px #c8f16918; }
+  .field { margin-bottom:17px; }
+  .hint { color:#77867b; font-size:11px; margin-top:7px; line-height:1.5; }
+  .security { display:flex; gap:10px; align-items:flex-start; margin:4px 0 22px; color:var(--muted); font-size:12px; line-height:1.55; }
+  .security strong { color:var(--cyan); font-weight:600; }
+  .shield { color:var(--cyan); font-size:16px; line-height:1; }
+  .actions { display:flex; align-items:center; justify-content:space-between; gap:15px; padding-top:7px; }
+  .guide { display:flex; gap:14px; padding:16px 0; border-bottom:1px solid var(--line); line-height:1.6; }
+  .guide:last-of-type { border-bottom:0; }
+  .guide-icon { color:var(--lime); font-size:11px; letter-spacing:.08em; padding-top:2px; }
+  .guide strong { font-size:14px; }
+  .guide p { color:var(--muted); margin:5px 0 0; font-size:13px; }
+  button { border:0; border-radius:7px; min-height:43px; padding:0 18px; font:600 13px inherit; cursor:pointer; }
+  .primary { background:var(--lime); color:var(--lime-ink); }
+  .primary:hover { background:#d5fa82; }
+  .secondary { background:transparent; color:var(--muted); border:1px solid var(--line); }
+  .status { min-height:20px; font-size:12px; color:var(--muted); }
+  .status.error { color:var(--danger); }
+  .status.ok { color:var(--cyan); }
+  @media (max-width:760px) { .shell { grid-template-columns:1fr; width:min(100% - 28px,560px); gap:24px; padding:28px 0; } .brand { min-height:0; } .eyebrow { margin-top:44px; } .footnote { display:none; } .panel { padding:21px; } .row { grid-template-columns:1fr; gap:0; } .panel-head { padding-bottom:20px; } }
+</style>
+</head>
+<body>
+<main class="shell">
+  <section class="brand">
+    <div>
+      <div class="mark"><span class="mark-icon">✦</span><span>AuraBrain Runtime</span></div>
+      <div class="eyebrow">First connection</div>
+      <h1>让你的模型，成为本地运行时的大脑。</h1>
+      <p class="intro">先连接一个兼容 OpenAI API 的模型。完成后，AuraBrain 会把普通设置保存到你的用户配置目录，并把密钥交给 Windows 安全存储。</p>
+    </div>
+    <p class="footnote">配置可以随时在 Runtime 设置中修改。密钥不会写入项目文件，也不会回显。</p>
+  </section>
+  <section class="panel">
+    <div class="panel-head"><div><h2>配置 AuraBrain</h2><p>模型配置集中在 Settings 中，初始化只需要完成一次。</p></div><span class="step">WELCOME</span></div>
+    <form id="setup-form">
+      <div class="guide"><span class="guide-icon">01</span><div><strong>打开模型设置</strong><p>在这里添加 OpenAI 兼容接口、模型地址和 API Key。API Key 只会保存到 Windows Credential Manager。</p></div></div>
+      <div class="guide"><span class="guide-icon">02</span><div><strong>回到测试工作台</strong><p>保存模型后，你可以选择模型进行文本对话，也可以粘贴或拖拽图片测试多模态能力。</p></div></div>
+      <div class="actions"><div class="status" id="status"></div><button class="primary" type="button" onclick="location.href='/aurabrain/settings/models'">进入模型设置</button></div>
+    </form>
+  </section>
+</main>
+<script>
+</script>
+</body>
+</html>

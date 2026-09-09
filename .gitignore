@@ -8,10 +8,13 @@ node_modules/
 dist/
 .mastra/
 
-# 环境变量（模板 .env.example 保留）
+# Environment files used by learning examples; never commit local secrets.
 .env
 .env.*
 !.env.example
+
+.aurabrain-runtime.pid
+.aurabrain/
 
 # 数据库 / 本地存储
 *.db

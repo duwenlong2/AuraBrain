@@ -1,12 +1,138 @@
 # AuraBrain
 
-Give your AuraCore a brain. / 给 AuraCore 装上大脑。
+AuraBrain 是一个可独立运行、可通过接口调用、也可被二次开发的开源 AI Runtime。
 
-基于 [Mastra](https://mastra.ai) 的 TypeScript 云端 AI 框架，连接云端智能与物理世界。本项目也是一个**系统性学习 Mastra 的系列项目**，最终为 [AuraCore](https://github.com/duwenlong2/AuraCore) 构建云端 AI 大脑。
+它负责在后台运行 Agent、Tool 和 Workflow，并通过 HTTP 对外提供能力；CLI 用于启动、检查、调用和开发调试；管理界面用于配置 Runtime、查看状态和调试执行过程。
 
-🧠 Think – 理解自然语言，拆解意图（Agent + Workflow）
-📡 Connect – 通过 MQTT 与 ESP32 设备通信
-⚡ Act – 把意图解析为硬件指令，驱动真实设备（小车 / 摄像头 / 机械臂）
+AuraBrain 基于 [Mastra](https://mastra.ai) 构建，但 Mastra 是内部实现基础，不是 AuraBrain 对外的产品边界。
+
+```text
+AuraBrain
+├── Runtime       后台进程和执行能力
+├── CLI            启动、检查、调用和调试
+├── API            面向客户端和第三方的接口层
+├── Console        配置、状态和调试界面
+└── Extensions     Agent、Tool、Workflow 和插件扩展
+```
+
+SightTwin 是 AuraBrain 的一个桌面客户端。其他开发者也可以使用自己的 Web、CLI、桌面或设备客户端调用同一个 Runtime。
+
+## 使用方式
+
+### 作为后台 Runtime
+
+在另一台机器上从 Git 拉取源码后，先安装 Node.js 25 或兼容的较新版本，然后执行：
+
+```powershell
+git clone <repository-url> AuraBrain
+cd AuraBrain
+npm install
+npm link
+brain build
+brain dev
+```
+
+默认监听 `127.0.0.1:49000`。生产模式使用：
+
+```powershell
+brain stop
+brain build
+brain start
+```
+
+`brain build` 会生成本地 `.mastra/output/`，该目录已被 Git 忽略，不需要上传。开发者修改源码后再次执行 `brain build`，再执行 `brain dev`。
+
+最小生命周期接口：
+
+```text
+GET /health
+```
+
+接口文档由 Runtime 提供，开发模式启动后可从根地址进入 Mastra 生成的 API 文档和调试界面。AuraBrain 计划把对外能力逐步收敛到稳定的 `/v1/` 接口层；当前客户端应使用已明确的接口，避免依赖 Mastra 内部路由。
+
+### 通过 CLI 使用
+
+在 AuraBrain 根目录执行一次 `npm link`，注册本机 CLI 命令：
+
+```powershell
+cd D:\Codes\Lenovo\workspace\AuraBrain
+npm link
+```
+
+之后进入 AuraBrain 目录即可直接使用 `brain`：
+
+```powershell
+cd D:\Codes\Lenovo\workspace\AuraBrain
+
+# 启动本地 Runtime，保持此终端运行
+brain dev
+
+# 停止 Runtime（另开一个终端执行）
+brain stop
+
+# 新开一个终端，查询 Runtime 状态
+brain status
+
+# 首次配置模型：自动打开 AuraBrain 配置页
+brain init
+
+# 修改模型或 Runtime 设置
+brain settings
+
+# 启动文字 Chat，用于验证默认模型是否能正常返回
+brain chat
+# Chat 中输入 /clear 清空当前上下文，输入 /exit 或 /quit 退出
+
+# 查询健康接口
+brain health
+
+# 调用 HTTP 接口；无 JSON 参数时使用 GET
+brain call /health
+
+# 发送 JSON 请求体时使用 POST
+brain call /test-api/run '{"tool":"outlook-test-connection","input":{}}'
+
+# 生产模式：先构建，再启动
+brain build
+brain start
+```
+
+默认连接固定为 `http://127.0.0.1:49000`。`brain status` 会同时显示 Runtime 是否运行，以及模型是否完成初始化。
+`brain dev` 使用最近一次构建产物启动，避免 Windows 下 Mastra 开发重建与 `keytar` 原生模块发生文件锁冲突；修改源码后重新执行 `brain build` 即可。
+
+`aurabrain` 仍然作为完整命令保留；`brain` 是推荐的短命令。
+
+### 敏感配置存储
+
+AuraBrain 的敏感配置不应直接写入普通配置文件。Runtime 使用操作系统凭据存储保存这类值：Windows 下写入 Credential Manager，代码通过 `service + key` 读取对应的 value。配置文件只保存 Provider、Model 和凭据 key，不保存 API Key 明文。
+
+当前 `src/main/lib/secret-store.ts` 已提供保存、读取和删除封装。首次打开 `http://127.0.0.1:49000/` 时，如果尚未配置模型，会进入 AuraBrain 初始化页面。API Key 由服务端写入 Windows Credential Manager，页面只提交一次，不负责持久化或回显真实值。
+
+普通配置保存在当前 Windows 用户目录：`%APPDATA%\AuraBrain\config.json`（通常是 `C:\Users\<用户名>\AppData\Roaming\AuraBrain\config.json`）。其中只保存 Provider、Model、接口地址和凭据引用；真实 API Key、Graph OAuth Token、IMAP 密码等敏感值保存在 Credential Manager。旧项目内 `.aurabrain/config.json` 仅作为迁移兼容来源，新配置始终写入用户目录。
+
+### 基于 Runtime 二次开发
+
+二次开发只需要提交源码和配置文件，不提交 `node_modules/`、`.mastra/`、`.aurabrain/`、`.env` 或任何 API Key。推荐顺序：
+
+1. 在 `src/main/index.ts` 注册 Agent、Tool、Workflow 和 API 路由。
+2. 在 `src/main/tools/` 增加业务工具，在 `src/main/lib/` 增加 Outlook、IMAP、Graph 等适配器。
+3. 在 `src/main/routes.ts` 增加管理接口或稳定的公共接口；客户端不要依赖 Mastra 的 `/settings/*` 页面。
+4. 运行 `npx esbuild src/main/routes.ts --bundle --platform=node --format=esm --external:@mastra/core --external:keytar` 做快速检查。
+5. 执行 `brain build`，再用 `brain dev` 启动验证。
+
+更完整的目录说明、扩展边界和最小示例见 [Runtime 开发指南](docs/runtime-development.md)。
+
+## 接口层
+
+AuraBrain 对外接口分为三层：
+
+```text
+/health       进程和 Runtime 健康检查
+/v1/*         规划中的稳定公共能力接口，供客户端和第三方调用
+/admin/*      管理、配置、状态和调试接口，供 Console 使用
+```
+
+每个公共接口都需要描述请求、响应、错误、权限和副作用。接口文档是 Runtime 的正式交付物，而不是附带说明。具体业务适配器应通过统一接口接入，不把 Outlook 或 SightTwin 专属逻辑写进核心协议。
 
 ## 目录结构
 
@@ -18,41 +144,41 @@ AuraBrain/
 │       ├── 01-basic-agent.md      ← 对应 examples/01
 │       ├── 02-mini-agent.md       ← 对应 examples/02
 │       └── 03-workflow.md         ← 对应 examples/03
+├── src/              ← AuraBrain Runtime 主应用
+│   └── main/         ← Runtime 入口、Tools、路由和本地适配器
+├── docs/             ← Runtime、API 和扩展开发文档
+│   ├── runtime-development.md
+│   └── mastra-source-guide.md
 ├── examples/        ← 学习示例（从 helloworld 起步，最小 MVP）
 │   ├── 01-basic-agent   ← 我们自己的 Agent 学习示例（参考 Harness 能力）
 │   ├── 02-mini-agent    ← 极简 Agent（从 0 手写：工具/记忆/存储/观测）
-│   └── 03-workflow      ← 极简 Workflow（从 0 手写：顺序/并行/分支）
-└── mastra/          ← Mastra 框架源码（独立拉取，见下）
+│   ├── 03-workflow      ← 极简 Workflow（从 0 手写：顺序/并行/分支）
+│   └── 04-07             ← Memory、Workspace、Agent Loop、Durable Agent
 ```
 
-## 快速开始
+## 开发示例
+
+学习示例仍然保留，用于理解底层 Agent、Tool 和 Workflow，不代表 AuraBrain 的产品入口：
 
 ```bash
-# 1. 拉取 Mastra 源码（本仓库不包含源码，学习/深挖用）
-git clone https://github.com/mastra-ai/mastra.git mastra
-# 更新源码：cd mastra && git pull
-
-# 2. 跑示例（推荐从 02-mini-agent 开始，最简）
 cd examples/02-mini-agent
-cp .env.example .env   # 填入 DEEPSEEK_API_KEY（默认用 DeepSeek）
 npm install
-npm run dev            # 打开 http://localhost:4111 访问 Mastra Studio
+npm run dev
 ```
 
-> **API Key 安全**：所有 key 都放在 `.env`（已被 `.gitignore` 忽略），不会提交到 GitHub。
-> 默认模型 DeepSeek（`deepseek/deepseek-v4-flash`），也可换 OpenAI——改 `model` 字符串 + `.env` 填 `OPENAI_API_KEY`。
+> 示例项目仍有自己的独立配置方式，可能使用 `.env.example` + `.env`。AuraBrain Runtime 本身不使用 `.env` 保存业务配置。Runtime 的 API Key 和 Token 写入 Windows Credential Manager，普通配置写入 `%APPDATA%\AuraBrain\config.json`。
 
-## 学习大纲
+## 技术学习资料
 
-学习依据三部分：
+学习依据官方文档和本项目示例：
 
 ```text
 Mastra 官方文档：https://mastra.ai/docs/
-Mastra 官方源码：mastra/
-官方 examples/templates：mastra/examples/、mastra/templates/
+AuraBrain Runtime：src/main/
+本项目 examples/ 和 docs/
 ```
 
-官方目录负责告诉我们 Mastra 能做什么，我们的 `examples/` 负责把一个能力拆成小例子，博客负责用通俗语言解释数据从哪里来。
+官方文档负责说明底层能力，AuraBrain Runtime 负责提供可复用运行时，本项目的 `examples/` 负责把能力拆成小例子。
 
 ### 阶段 0：TypeScript 和项目基础
 

@@ -1,0 +1,36 @@
+{
+  "name": "aurabrain-runtime",
+  "version": "0.1.0",
+  "description": "AuraBrain Runtime: a local AI runtime built on Mastra.",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "aurabrain": "./bin/aurabrain.mjs",
+    "brain": "./bin/aurabrain.mjs"
+  },
+  "scripts": {
+    "cli": "node ./bin/aurabrain.mjs",
+    "dev": "node ./bin/aurabrain.mjs dev",
+    "build": "node ./bin/aurabrain.mjs build",
+    "start": "node ./bin/aurabrain.mjs start",
+    "stop": "node ./bin/aurabrain.mjs stop",
+    "health": "node ./bin/aurabrain.mjs health",
+    "status": "node ./bin/aurabrain.mjs status",
+    "init": "node ./bin/aurabrain.mjs init",
+    "settings": "node ./bin/aurabrain.mjs settings",
+    "chat": "node ./bin/aurabrain.mjs chat",
+    "call": "node ./bin/aurabrain.mjs call"
+  },
+  "dependencies": {
+    "@mastra/core": "^1.63.2",
+    "imapflow": "^1.7.6",
+    "keytar": "^7.9.0",
+    "mailparser": "^3.9.17",
+    "zod": "^4.5.4"
+  },
+  "devDependencies": {
+    "@types/node": "^26.4.0",
+    "mastra": "^1.27.2",
+    "typescript": "^7.0.2"
+  }
+}
