@@ -56,6 +56,8 @@ brain dev      # 启动最近一次构建产物
 
 API Key、Graph OAuth Token 和 IMAP 密码写入 Windows Credential Manager，服务名为 `AuraBrain`。不要把这些值写进源码、README、Git 或 `.env`。
 
+`%APPDATA%\AuraBrain\config.json` 仍然需要保留，它只保存模型地址、模型 ID、默认模型和 `apiKeyRef` 等非敏感元数据。Runtime 在请求时从 Credential Manager 读取 Key，并通过 Mastra 原生模型解析器创建本次调用使用的内存模型对象；不会把 Key 写入配置文件或构建产物。
+
 VS Code 扫描默认读取：
 
 ```text

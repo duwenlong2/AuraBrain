@@ -46,6 +46,11 @@ import {
   broadcastPush,
   type PushEvent,
 } from './lib/outlook.ts'
+import {
+  generateModelText,
+  streamModelText,
+  toOpenAIStream,
+} from './lib/model-runtime.ts'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
@@ -240,52 +245,23 @@ export const apiRoutes = [
             ? [{ role: 'user' as const, content: body.message.trim() }]
             : []
         if (!body.model || !messages.length) return c.json({ ok: false, error: '模型和消息不能为空' }, 400)
-        const [providerId, ...modelParts] = body.model.split('/')
-        const modelId = modelParts.join('/')
-        const provider = loadConfig().models?.providers?.find(item => item.id === providerId)
-        if (!provider || !modelId) return c.json({ ok: false, error: '找不到所选模型' }, 404)
-        if (provider.apiType !== 'chat-completions') return c.json({ ok: false, error: '当前测试页只支持 Chat Completions 接口' }, 400)
-        const apiKey = provider.apiKeyRef ? await getSecret(provider.apiKeyRef) : null
         const requestMessages = body.imageData
           ? [...messages.slice(0, -1), { ...messages.at(-1)!, content: [{ type: 'text', text: messages.at(-1)!.content }, { type: 'image_url', image_url: { url: body.imageData } }] }]
           : messages
-        const abortController = new AbortController()
-        const timeout = setTimeout(() => abortController.abort(), 120_000)
-        let response: Response
-        try {
-          response = await fetch(`${provider.baseUrl}/chat/completions`, {
-            method: 'POST',
-            headers: { 'content-type': 'application/json', ...(apiKey ? { authorization: `Bearer ${apiKey}` } : {}) },
-            body: JSON.stringify({ model: modelId, messages: requestMessages, temperature: 0.2, ...(body.stream ? { stream: true } : {}) }),
-            signal: abortController.signal,
-          })
-        } catch (error: any) {
-          if (error?.name === 'AbortError') {
-            return c.json({ ok: false, error: '模型网关 120 秒内没有返回。请检查本地模型服务是否已加载、接口地址是否正确，或先用纯文本测试。' }, 504)
-          }
-          return c.json({ ok: false, error: `无法连接模型网关：${error?.message || String(error)}` }, 502)
-        } finally {
-          clearTimeout(timeout)
-        }
         if (body.stream) {
-          if (!response.ok) {
-            const errorText = await response.text()
-            let errorResult: any = {}
-            try { errorResult = errorText ? JSON.parse(errorText) : {} } catch { /* Preserve the upstream text below. */ }
-            return c.json({ ok: false, error: errorResult?.error?.message || errorText || `模型接口返回 HTTP ${response.status}` }, 502)
-          }
-          return new Response(response.body, {
-            status: response.status,
-            headers: { 'content-type': response.headers.get('content-type') || 'text/event-stream; charset=utf-8', 'cache-control': 'no-cache' },
+          const result = await streamModelText({ model: body.model, messages: requestMessages })
+          return new Response(toOpenAIStream(result.textStream), {
+            status: 200,
+            headers: { 'content-type': 'text/event-stream; charset=utf-8', 'cache-control': 'no-cache' },
           })
         }
-        const responseText = await response.text()
-        let result: any = {}
-        try { result = responseText ? JSON.parse(responseText) : {} } catch { /* Preserve the upstream text below. */ }
-        if (!response.ok) return c.json({ ok: false, error: result?.error?.message || responseText || `模型接口返回 HTTP ${response.status}` }, 502)
-        return c.json({ ok: true, model: body.model, text: result?.choices?.[0]?.message?.content || '' })
+        const result = await generateModelText({ model: body.model, messages: requestMessages })
+        return c.json({ ok: true, model: body.model, text: result.text || '' })
       } catch (error: any) {
-        return c.json({ ok: false, error: error?.message || String(error) }, 500)
+        const message = error?.name === 'AbortError'
+          ? '模型网关 120 秒内没有返回。请检查本地模型服务是否已加载、接口地址是否正确，或先用纯文本测试。'
+          : error?.message || String(error)
+        return c.json({ ok: false, error: message }, error?.name === 'AbortError' ? 504 : 502)
       }
     },
   }),

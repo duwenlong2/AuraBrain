@@ -111,7 +111,7 @@ AuraBrain 的敏感配置不应直接写入普通配置文件。Runtime 使用�
 
 当前 `src/main/lib/secret-store.ts` 已提供保存、读取和删除封装。首次打开 `http://127.0.0.1:49000/` 时，如果尚未配置模型，会进入 AuraBrain 初始化页面。API Key 由服务端写入 Windows Credential Manager，页面只提交一次，不负责持久化或回显真实值。
 
-普通配置保存在当前 Windows 用户目录：`%APPDATA%\AuraBrain\config.json`（通常是 `C:\Users\<用户名>\AppData\Roaming\AuraBrain\config.json`）。其中只保存 Provider、Model、接口地址和凭据引用；真实 API Key、Graph OAuth Token、IMAP 密码等敏感值保存在 Credential Manager。旧项目内 `.aurabrain/config.json` 仅作为迁移兼容来源，新配置始终写入用户目录。
+普通配置保存在当前 Windows 用户目录：`%APPDATA%\AuraBrain\config.json`（通常是 `C:\Users\<用户名>\AppData\Roaming\AuraBrain\config.json`）。其中只保存 Provider、Model、接口地址和凭据引用；真实 API Key、Graph OAuth Token、IMAP 密码等敏感值保存在 Credential Manager。Mastra 通过原生模型解析器接收调用时的内存配置，不读取或持久化明文 Key。旧项目内 `.aurabrain/config.json` 仅作为迁移兼容来源，新配置始终写入用户目录。
 
 ### 基于 Runtime 二次开发
 

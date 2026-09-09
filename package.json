@@ -23,6 +23,7 @@
   },
   "dependencies": {
     "@mastra/core": "^1.63.2",
+    "ai": "^7.0.94",
     "imapflow": "^1.7.6",
     "keytar": "^7.9.0",
     "mailparser": "^3.9.17",

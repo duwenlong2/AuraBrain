@@ -6,13 +6,17 @@
 //  后续 M2 再挂 mail-agent / calendar-agent（自然语言摘要、任务识别）。
 // ============================================================
 import { Mastra } from '@mastra/core'
+import { runtimeAgent } from '../mastra/agents/runtime-agent.ts'
 import { allMailTools } from './tools/mail-tools.ts'
 import { allCalendarTools } from './tools/calendar-tools.ts'
 import { allOutlookTools } from './tools/outlook-tools.ts'
 import { apiRoutes } from './routes.ts'
 
 export const mastra = new Mastra({
-  // 全局注册 tools：既供 Agent 挂载，也供 /api/test/run 直调
+  agents: {
+    runtimeAgent,
+  },
+  // 全局注册 tools：既供 Agent 挂载，也供 /test-api/run 直调
   tools: {
     ...allMailTools,
     ...allCalendarTools,

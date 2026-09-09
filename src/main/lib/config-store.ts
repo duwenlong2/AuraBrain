@@ -49,15 +49,33 @@ function configPath(): string {
   return [userConfigPath(), ...LEGACY_CONFIG_CANDIDATES].find(candidate => fs.existsSync(candidate)) || userConfigPath()
 }
 
+function sanitizeConfig(config: AuraBrainConfig): AuraBrainConfig {
+  const models = config.models
+  return {
+    ...config,
+    models: models
+      ? {
+          ...models,
+          providers: models.providers?.map(provider => {
+            const persistedProvider = provider as typeof provider & { apiKey?: unknown; secret?: unknown }
+            const { apiKey: _apiKey, secret: _secret, ...safeProvider } = persistedProvider
+            return safeProvider
+          }),
+        }
+      : undefined,
+  }
+}
+
 export function loadConfig(): AuraBrainConfig {
   try {
-    return JSON.parse(fs.readFileSync(configPath(), 'utf8')) as AuraBrainConfig
+    return sanitizeConfig(JSON.parse(fs.readFileSync(configPath(), 'utf8')) as AuraBrainConfig)
   } catch {
     return {}
   }
 }
 
 export function saveConfig(config: AuraBrainConfig): void {
+  config = sanitizeConfig(config)
   const filePath = userConfigPath()
   fs.mkdirSync(path.dirname(filePath), { recursive: true })
   const temporaryPath = `${filePath}.tmp`
