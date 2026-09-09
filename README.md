@@ -15,7 +15,7 @@ AuraBrain
 └── Extensions     Agent、Tool、Workflow 和插件扩展
 ```
 
-SightTwin 是 AuraBrain 的一个桌面客户端。其他开发者也可以使用自己的 Web、CLI、桌面或设备客户端调用同一个 Runtime。
+其他开发者也可以使用自己的 Web、CLI、桌面或设备客户端调用同一个 Runtime。
 
 ## 使用方式
 
@@ -55,14 +55,14 @@ GET /health
 在 AuraBrain 根目录执行一次 `npm link`，注册本机 CLI 命令：
 
 ```powershell
-cd D:\Codes\Lenovo\workspace\AuraBrain
+cd D:\Codes\xxx\workspace\AuraBrain
 npm link
 ```
 
 之后进入 AuraBrain 目录即可直接使用 `brain`：
 
 ```powershell
-cd D:\Codes\Lenovo\workspace\AuraBrain
+cd D:\Codes\xxx\workspace\AuraBrain
 
 # 启动本地 Runtime（后台运行，启动成功后立即返回终端）
 brain dev
