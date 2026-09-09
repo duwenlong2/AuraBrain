@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import { execFileSync, spawn } from 'node:child_process'
-import { existsSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs'
+import { closeSync, existsSync, mkdirSync, openSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs'
 import readline from 'node:readline/promises'
 import { resolve } from 'node:path'
 
@@ -13,15 +13,18 @@ const port = Number(process.env.AURABRAIN_PORT || 49000)
 const baseUrl = `http://${host}:${port}`
 const pidFile = resolve('.aurabrain-runtime.pid')
 const devLockFile = resolve('.mastra', 'dev.lock')
+const logDir = resolve('.aurabrain')
+const logFile = resolve(logDir, 'runtime.log')
 
 function printHelp() {
   console.log(`AuraBrain CLI (brain)
 
 Commands:
-  brain dev                     Start the local Runtime
-  brain start                   Start the built Runtime
+  brain dev                     Start the local Runtime (后台运行，启动成功后立即返回)
+  brain start                   Start the built Runtime (后台运行，启动成功后立即返回)
   brain build                   Build the Runtime
   brain stop                    Stop the started Runtime
+  brain logs                    Show the last 50 lines of the Runtime log
   brain health                  Check Runtime health
   brain status                  Check health and initialization status
   brain init                    Open the first-time model setup page
@@ -48,18 +51,96 @@ function runMastra(mastraCommand, commandArgs) {
   })
 }
 
+function spawnRuntime() {
+  const runtimeEntry = resolve('.mastra', 'output', 'index.mjs')
+  if (!existsSync(logDir)) mkdirSync(logDir, { recursive: true })
+  const logStream = openSync(logFile, 'a')
+  const child = spawn(process.execPath, [runtimeEntry], {
+    detached: true,
+    stdio: ['ignore', logStream, logStream],
+    shell: false,
+    windowsHide: true,
+  })
+  closeSync(logStream)
+  writeFileSync(pidFile, `${child.pid}\n`, 'utf8')
+  child.unref()
+  return child
+}
+
+function findListeningPid() {
+  if (process.platform !== 'win32') return null
+  const netstat = execFileSync('netstat.exe', ['-ano', '-p', 'tcp'], { encoding: 'utf8' })
+  const line = netstat.split(/\r?\n/).find(item => new RegExp(`127\\.0\\.1:${port}\\s+.*LISTENING\\s+(\\d+)`).test(item))
+  return line?.match(/LISTENING\s+(\d+)\s*$/)?.[1] || null
+}
+
+async function waitForReady(timeoutMs = 45_000, isAborted = () => false) {
+  const deadline = Date.now() + timeoutMs
+  while (Date.now() < deadline) {
+    if (await isRuntimeRunning()) return true
+    if (isAborted()) return false
+    await new Promise(resolveTimer => setTimeout(resolveTimer, 300))
+  }
+  return false
+}
+
+function printLogTail(file = logFile, lines = 20) {
+  if (!existsSync(file)) return
+  const content = readFileSync(file, 'utf8').trimEnd().split(/\r?\n/)
+  if (content.length) console.error(content.slice(-lines).join('\n'))
+}
+
+async function startRuntimeDaemon() {
+  console.log(`AuraBrain Runtime 启动中 (${baseUrl})...`)
+  const child = spawnRuntime()
+  let exitInfo = null
+  if (typeof child.once === 'function') {
+    child.once('exit', (code, signal) => { exitInfo = { code, signal } })
+  }
+  const ready = await waitForReady(45_000, () => exitInfo !== null)
+  if (!ready) {
+    console.error(exitInfo
+      ? `AuraBrain Runtime 启动失败 (进程已退出 code=${exitInfo.code ?? exitInfo.signal})。最近日志:`
+      : 'AuraBrain Runtime 启动超时 (45s 内未就绪)。最近日志:')
+    printLogTail()
+    process.exitCode = 1
+    return
+  }
+  const listeningPid = findListeningPid()
+  if (listeningPid) writeFileSync(pidFile, `${listeningPid}\n`, 'utf8')
+  const runtimePid = listeningPid || child.pid
+  console.log(`✓ 启动成功 (${baseUrl})`)
+  console.log(`  PID: ${runtimePid}`)
+  console.log(`  日志: ${logFile}`)
+  console.log('  查看状态: brain status')
+  console.log('  停止: brain stop')
+}
+
+async function handleAlreadyRunning() {
+  console.log(`AuraBrain Runtime 已在运行 (${baseUrl})，无需重复启动。`)
+  if (existsSync(pidFile)) {
+    const pid = readFileSync(pidFile, 'utf8').trim()
+    if (pid) console.log(`  PID: ${pid}`)
+  }
+  try {
+    const response = await fetch(`${baseUrl}/admin/status`)
+    const status = await response.json()
+    if (response.ok) {
+      console.log(`模型状态: ${status.initialized ? '已初始化' : '未初始化'}`)
+      if (status.defaultModel) console.log(`默认模型: ${status.defaultModel}`)
+    }
+  } catch {
+    // 状态接口不可用时只提示运行中
+  }
+  console.log('如需重启: 先执行 brain stop，再执行 brain dev')
+}
+
 async function isRuntimeRunning() {
   try {
     const response = await fetch(`${baseUrl}/health`)
     return response.ok
   } catch {
     return false
-  }
-}
-
-async function ensureRuntimeAvailable() {
-  if (await isRuntimeRunning()) {
-    throw new Error(`AuraBrain Runtime 已在运行 (${baseUrl})，无需重复执行 brain dev；如需重启请先执行: brain stop`)
   }
 }
 
@@ -79,7 +160,16 @@ function removeStaleDevLock() {
   unlinkSync(devLockFile)
 }
 
-function stopRuntime() {
+async function waitUntilStopped(timeoutMs = 5000) {
+  const deadline = Date.now() + timeoutMs
+  while (Date.now() < deadline) {
+    if (!(await isRuntimeRunning())) return true
+    await new Promise(resolveTimer => setTimeout(resolveTimer, 200))
+  }
+  return !(await isRuntimeRunning())
+}
+
+async function stopRuntime() {
   if (!existsSync(pidFile)) {
     if (process.platform === 'win32') {
       const netstat = execFileSync('netstat.exe', ['-ano', '-p', 'tcp'], { encoding: 'utf8' })
@@ -87,11 +177,12 @@ function stopRuntime() {
       const match = line?.match(/LISTENING\s+(\d+)\s*$/)
       if (match) {
         execFileSync('taskkill.exe', ['/PID', match[1], '/T', '/F'], { stdio: 'ignore' })
-        console.log(`AuraBrain Runtime stopped (PID ${match[1]}).`)
+        await waitUntilStopped()
+        console.log(`✓ AuraBrain Runtime 已停止 (PID ${match[1]}).`)
         return
       }
     }
-    console.log('AuraBrain Runtime is not managed by this CLI.')
+    console.log('AuraBrain Runtime 未运行。')
     return
   }
 
@@ -108,10 +199,13 @@ function stopRuntime() {
     } else {
       process.kill(pid, 'SIGTERM')
     }
-    console.log(`AuraBrain Runtime stopped (PID ${pid}).`)
+    const stopped = await waitUntilStopped()
+    console.log(stopped
+      ? `✓ AuraBrain Runtime 已停止 (PID ${pid}).`
+      : `AuraBrain Runtime 停止信号已发送 (PID ${pid})，如端口仍被占用请手动结束进程。`)
   } catch (error) {
     if (error?.status === 128 || error?.code === 'ESRCH') {
-      console.log('AuraBrain Runtime is already stopped.')
+      console.log('AuraBrain Runtime 已停止。')
       return
     }
     throw error
@@ -272,23 +366,32 @@ async function readChatStream(response) {
 try {
   switch (command) {
     case 'dev':
-      await ensureRuntimeAvailable()
+    case 'start':
+      if (await isRuntimeRunning()) {
+        await handleAlreadyRunning()
+        break
+      }
       if (!existsSync(resolve('.mastra', 'output', 'index.mjs'))) {
         throw new Error('未找到构建产物，请先执行: brain build')
       }
-      runMastra('start', args)
-      break
-    case 'start':
-      await ensureRuntimeAvailable()
-      runMastra('start', args)
+      await startRuntimeDaemon()
       break
     case 'stop':
-      stopRuntime()
+      await stopRuntime()
       break
     case 'build':
-      if (await isRuntimeRunning()) stopRuntime()
+      if (await isRuntimeRunning()) await stopRuntime()
       runMastra('build', ['--dir', 'src/main', ...args])
       break
+    case 'logs': {
+      if (!existsSync(logFile)) {
+        console.log('暂无日志 (Runtime 未启动过)。')
+        break
+      }
+      const content = readFileSync(logFile, 'utf8').trimEnd().split(/\r?\n/)
+      console.log(content.slice(-50).join('\n'))
+      break
+    }
     case 'health':
       await checkHealth()
       break

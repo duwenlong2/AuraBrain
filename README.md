@@ -64,14 +64,17 @@ npm link
 ```powershell
 cd D:\Codes\Lenovo\workspace\AuraBrain
 
-# 启动本地 Runtime，保持此终端运行
+# 启动本地 Runtime（后台运行，启动成功后立即返回终端）
 brain dev
 
-# 停止 Runtime（另开一个终端执行）
+# 停止 Runtime
 brain stop
 
-# 新开一个终端，查询 Runtime 状态
+# 查询 Runtime 状态
 brain status
+
+# 查看最近 50 行运行日志
+brain logs
 
 # 首次配置模型：自动打开 AuraBrain 配置页
 brain init
