@@ -25,6 +25,28 @@ brain init
 
 `brain init` 会打开模型工作台。先扫描 VS Code 配置，再点击候选模型的“一键添加”，检查 API 地址和 API Key，最后保存。扫描不会自动保存，也不会读取 VS Code 的密钥内容。
 
+当前 Runtime 的第一条公共能力是模型透传：`POST /v1/chat`。它不截屏、不决定业务流程，只负责读取已配置模型、接收文本或图片、调用模型并返回结果。
+
+请求示例：
+
+```json
+{
+	"model": "provider/model-id",
+	"messages": [
+		{
+			"role": "user",
+			"content": [
+				{ "type": "text", "text": "请分析这张图片" },
+				{ "type": "image", "image": "data:image/png;base64,..." }
+			]
+		}
+	],
+	"stream": true
+}
+```
+
+图片由客户端产生，例如 SightTwin 从 Windows 屏幕采集后传入。Runtime 只做协议适配和模型调用，不实现 Windows 截屏。`stream: true` 返回 OpenAI-compatible SSE；当前阶段先使用 data URL，图片 Artifact 协议留到后续设计。
+
 验证默认模型：
 
 ```powershell
@@ -86,7 +108,8 @@ VS Code 扫描默认读取：
 增加 API 时，明确区分：
 
 - `/admin/*`：仅供本地管理页面使用的配置、扫描和测试接口。
-- `/v1/*`：规划中的面向 SightTwin 或第三方客户端的稳定公共接口。
+- `/v1/chat`：当前已提供的统一模型透传接口，支持文本、多轮消息、图片和流式输出。
+- `/v1/*`：其他规划中的面向 SightTwin 或第三方客户端的稳定公共接口。
 - `/health`：进程健康检查。
 
 ## 5. 代码提交边界

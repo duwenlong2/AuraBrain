@@ -101,6 +101,70 @@ const TOOL_REGISTRY: Record<string, any> = {
   'outlook-get-events': outlookEventsTool,
 }
 
+type ChatRequestMessage = {
+  role: 'system' | 'user' | 'assistant'
+  content: unknown
+}
+
+function normalizeChatMessages(messages: ChatRequestMessage[], imageData?: string) {
+  const normalized = messages.map(message => {
+    if (!Array.isArray(message.content)) return message
+    return {
+      ...message,
+      content: message.content.map((part: any) => {
+        if (part?.type === 'image_url' && part.image_url?.url) {
+          return { type: 'image', image: part.image_url.url }
+        }
+        return part
+      }),
+    }
+  })
+  if (!imageData) return normalized
+  const last = normalized.at(-1)
+  if (!last || last.role !== 'user') return normalized
+  const text = typeof last.content === 'string' ? last.content : ''
+  const content = Array.isArray(last.content) ? last.content : [{ type: 'text', text }]
+  return [...normalized.slice(0, -1), { ...last, content: [...content, { type: 'image', image: imageData }] }]
+}
+
+async function modelChatHandler(c: any) {
+  try {
+    const body = await c.req.json() as {
+      model?: string
+      message?: string
+      imageData?: string
+      messages?: ChatRequestMessage[]
+      stream?: boolean
+    }
+    const messages = body.messages?.length
+      ? body.messages
+      : body.message?.trim()
+        ? [{ role: 'user' as const, content: body.message.trim() }]
+        : []
+    if (!body.model || !messages.length) return c.json({ ok: false, error: '模型和消息不能为空' }, 400)
+
+    const requestMessages = normalizeChatMessages(messages, body.imageData)
+    if (body.stream) {
+      const result = await streamModelText({ model: body.model, messages: requestMessages })
+      return new Response(toOpenAIStream(result.textStream), {
+        status: 200,
+        headers: {
+          'content-type': 'text/event-stream; charset=utf-8',
+          'cache-control': 'no-cache',
+          connection: 'keep-alive',
+        },
+      })
+    }
+    const result = await generateModelText({ model: body.model, messages: requestMessages })
+    return c.json({ ok: true, model: body.model, text: result.text || '' })
+  } catch (error: any) {
+    const message = error?.name === 'AbortError'
+      ? '模型网关 120 秒内没有返回。请检查本地模型服务是否已加载、接口地址是否正确，或先用纯文本测试。'
+      : error?.message || String(error)
+    return c.json({ ok: false, error: message }, error?.name === 'AbortError' ? 504 : 502)
+  }
+}
+
 export const apiRoutes = [
   registerApiRoute('/', {
     method: 'GET',
@@ -228,42 +292,15 @@ export const apiRoutes = [
     },
   }),
 
+  // 统一模型透传入口：文本、多轮消息、图片和流式输出都从这里进入 Runtime。
+  registerApiRoute('/v1/chat', {
+    method: 'POST',
+    handler: modelChatHandler,
+  }),
+
   registerApiRoute('/admin/model-chat', {
     method: 'POST',
-    handler: async c => {
-      try {
-        const body = await c.req.json() as {
-          model?: string
-          message?: string
-          imageData?: string
-          messages?: Array<{ role: 'user' | 'assistant' | 'system'; content: string }>
-          stream?: boolean
-        }
-        const messages = body.messages?.length
-          ? body.messages
-          : body.message?.trim()
-            ? [{ role: 'user' as const, content: body.message.trim() }]
-            : []
-        if (!body.model || !messages.length) return c.json({ ok: false, error: '模型和消息不能为空' }, 400)
-        const requestMessages = body.imageData
-          ? [...messages.slice(0, -1), { ...messages.at(-1)!, content: [{ type: 'text', text: messages.at(-1)!.content }, { type: 'image_url', image_url: { url: body.imageData } }] }]
-          : messages
-        if (body.stream) {
-          const result = await streamModelText({ model: body.model, messages: requestMessages })
-          return new Response(toOpenAIStream(result.textStream), {
-            status: 200,
-            headers: { 'content-type': 'text/event-stream; charset=utf-8', 'cache-control': 'no-cache' },
-          })
-        }
-        const result = await generateModelText({ model: body.model, messages: requestMessages })
-        return c.json({ ok: true, model: body.model, text: result.text || '' })
-      } catch (error: any) {
-        const message = error?.name === 'AbortError'
-          ? '模型网关 120 秒内没有返回。请检查本地模型服务是否已加载、接口地址是否正确，或先用纯文本测试。'
-          : error?.message || String(error)
-        return c.json({ ok: false, error: message }, error?.name === 'AbortError' ? 504 : 502)
-      }
-    },
+    handler: modelChatHandler,
   }),
 
   // ---------- 测试页 ----------

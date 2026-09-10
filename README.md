@@ -50,6 +50,26 @@ GET /health
 
 接口文档由 Runtime 提供，开发模式启动后可从根地址进入 Mastra 生成的 API 文档和调试界面。AuraBrain 计划把对外能力逐步收敛到稳定的 `/v1/` 接口层；当前客户端应使用已明确的接口，避免依赖 Mastra 内部路由。
 
+当前已经提供统一模型透传入口 `POST /v1/chat`。它接收文本、多轮消息和图片，并把请求交给当前配置的模型；Runtime 不负责截屏，SightTwin 或其他客户端负责产生图片。图片可以先使用 data URL，后续再扩展为 Artifact 引用。
+
+```json
+{
+	"model": "qwen/qwen35b-a3b",
+	"messages": [
+		{
+			"role": "user",
+			"content": [
+				{ "type": "text", "text": "请分析这张截图" },
+				{ "type": "image", "image": "data:image/png;base64,..." }
+			]
+		}
+	],
+	"stream": true
+}
+```
+
+`stream: true` 时返回 OpenAI-compatible SSE；不传或设为 `false` 时返回 `{ "ok": true, "model": "...", "text": "..." }`。旧的 `POST /admin/model-chat` 仍保留给 Console 和兼容旧测试页面使用，但新客户端应优先使用 `/v1/chat`。
+
 ### 通过 CLI 使用
 
 在 AuraBrain 根目录执行一次 `npm link`，注册本机 CLI 命令：
@@ -131,7 +151,8 @@ AuraBrain 对外接口分为三层：
 
 ```text
 /health       进程和 Runtime 健康检查
-/v1/*         规划中的稳定公共能力接口，供客户端和第三方调用
+/v1/chat      统一模型透传入口，支持文本、多轮消息、图片和流式输出
+/v1/*         其他规划中的稳定公共能力接口，供客户端和第三方调用
 /admin/*      管理、配置、状态和调试接口，供 Console 使用
 ```
 
