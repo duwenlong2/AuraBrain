@@ -24,7 +24,7 @@ AuraBrain
 在另一台机器上从 Git 拉取源码后，先安装 Node.js 25 或兼容的较新版本，然后执行：
 
 ```powershell
-git clone <repository-url> AuraBrain
+git clone https://github.com/duwenlong2/AuraBrain.git AuraBrain
 cd AuraBrain
 npm install
 npm link
