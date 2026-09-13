@@ -3,6 +3,16 @@ import os from 'node:os'
 import path from 'node:path'
 
 export interface AuraBrainConfig {
+  capabilities?: {
+    mail?: {
+      enabled?: boolean
+      dataMode?: 'real' | 'demo'
+    }
+    calendar?: {
+      enabled?: boolean
+      dataMode?: 'real' | 'demo'
+    }
+  }
   models?: {
     default?: string
     providers?: Array<{

@@ -27,6 +27,23 @@ brain init
 
 当前 Runtime 的第一条公共能力是模型透传：`POST /v1/chat`。它不截屏、不决定业务流程，只负责读取已配置模型、接收文本或图片、调用模型并返回结果。
 
+## 2. Runtime 与客户端的职责
+
+AuraBrain 是通用 Runtime。Agent、Memory、Workspace、Workflow、Tool 和模型调用都在 AuraBrain 内实现或注册；SightTwin 等客户端只通过稳定 API 发起调用、传入上下文并展示结果。
+
+```text
+SightTwin
+	UI、用户授权、产品流程、结果展示
+
+AuraBrain
+	Agent、Memory、Workspace、Workflow、Tool、模型和任务
+
+NativeCapabilityHost
+	C++ Windows API、设备能力和第三方原生 DLL
+```
+
+客户端可以传入 `appId`、`userId`、`sessionId`、Workspace scope 或 Memory namespace，用于隔离上下文；这些标识不改变 AuraBrain 的通用 Runtime 边界。NativeCapabilityHost 不应包含 Prompt、业务规则或模型调用。
+
 请求示例：
 
 ```json
@@ -55,7 +72,7 @@ brain chat
 
 Chat 支持多轮文字输入；`/clear` 清空上下文，`/exit` 或 `/quit` 退出。它主要用于确认 Runtime、凭据和模型网关是否连通。
 
-## 2. 日常命令
+## 3. 日常命令
 
 ```powershell
 brain status   # 查看 Runtime 和模型状态
@@ -68,7 +85,7 @@ brain dev      # 启动最近一次构建产物
 
 `brain build` 会在构建前停止正在运行的 AuraBrain，并生成 `.mastra/output/`。这个目录不提交到 Git。`brain dev` 已经在运行时不要重复启动，否则会占用 49000 端口。
 
-## 3. 配置和安全
+## 4. 配置和安全
 
 普通配置写入：
 
@@ -89,7 +106,7 @@ VS Code 扫描默认读取：
 
 目前只导入有 `apiType: "chat-completions"`、模型 ID 和 URL 的候选。Copilot 等没有可直接复用 URL 的配置会被跳过。
 
-## 4. 二次开发入口
+## 5. 二次开发入口
 
 | 目标 | 入口 |
 |------|------|
@@ -112,7 +129,7 @@ VS Code 扫描默认读取：
 - `/v1/*`：其他规划中的面向 SightTwin 或第三方客户端的稳定公共接口。
 - `/health`：进程健康检查。
 
-## 5. 代码提交边界
+## 6. 代码提交边界
 
 应该提交：
 

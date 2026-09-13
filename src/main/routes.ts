@@ -32,6 +32,13 @@ import {
 } from './tools/mail-tools.ts'
 import { graphEventsTool, graphTodayEventsTool, graphWeekEventsTool } from './tools/calendar-tools.ts'
 import {
+  loadCapabilitySettings,
+  readCapabilityCalendar,
+  readCapabilityMail,
+  saveCapabilitySettings,
+  type CapabilityDataMode,
+} from './lib/capabilities.ts'
+import {
   outlookTestTool,
   outlookRecentEmailsTool,
   outlookGetEmailTool,
@@ -74,12 +81,36 @@ const MODEL_SETTINGS_PAGE_CANDIDATES = [
   path.resolve(process.cwd(), 'src/main/public/models.html'),
 ]
 const MODEL_SETTINGS_PAGE_FILE = MODEL_SETTINGS_PAGE_CANDIDATES.find(p => fs.existsSync(p)) || MODEL_SETTINGS_PAGE_CANDIDATES[0]
+const CAPABILITIES_SETTINGS_PAGE_CANDIDATES = [
+  path.resolve(__dirname, 'public/capabilities.html'),
+  path.resolve(__dirname, '../../src/main/public/capabilities.html'),
+  path.resolve(process.cwd(), 'src/main/public/capabilities.html'),
+]
+const CAPABILITIES_SETTINGS_PAGE_FILE = CAPABILITIES_SETTINGS_PAGE_CANDIDATES.find(p => fs.existsSync(p)) || CAPABILITIES_SETTINGS_PAGE_CANDIDATES[0]
 const CONSOLE_PAGE_CANDIDATES = [
   path.resolve(__dirname, 'public/console.html'),
   path.resolve(__dirname, '../../src/main/public/console.html'),
   path.resolve(process.cwd(), 'src/main/public/console.html'),
 ]
 const CONSOLE_PAGE_FILE = CONSOLE_PAGE_CANDIDATES.find(p => fs.existsSync(p)) || CONSOLE_PAGE_CANDIDATES[0]
+const WORKSPACE_PAGE_CANDIDATES = [
+  path.resolve(__dirname, 'public/workspace/index.html'),
+  path.resolve(__dirname, '../../src/main/public/workspace/index.html'),
+  path.resolve(process.cwd(), 'src/main/public/workspace/index.html'),
+]
+const WORKSPACE_PAGE_FILE = WORKSPACE_PAGE_CANDIDATES.find(p => fs.existsSync(p)) || WORKSPACE_PAGE_CANDIDATES[0]
+const WORKSPACE_ASSETS_DIRECTORY = path.dirname(WORKSPACE_PAGE_FILE)
+
+const CONTENT_TYPES: Record<string, string> = {
+  '.css': 'text/css; charset=utf-8',
+  '.js': 'text/javascript; charset=utf-8',
+  '.png': 'image/png',
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.webp': 'image/webp',
+  '.svg': 'image/svg+xml',
+  '.ico': 'image/x-icon',
+}
 
 // 设备码流程的临时状态（POC 用内存即可）
 let pendingDeviceCode: { code: string; interval: number; expiresAt: number } | null = null
@@ -170,10 +201,33 @@ export const apiRoutes = [
     method: 'GET',
     handler: async c => {
       const config = loadConfig()
-      const html = config.models?.default
-        ? fs.readFileSync(CONSOLE_PAGE_FILE, 'utf8').replaceAll("/settings/models", "/aurabrain/settings/models")
+      const initialized = Boolean(config.models?.default && config.models?.providers?.length)
+      const html = initialized
+        ? fs.readFileSync(WORKSPACE_PAGE_FILE, 'utf8')
         : fs.readFileSync(SETUP_PAGE_FILE, 'utf8')
       return c.html(html)
+    },
+  }),
+
+  registerApiRoute('/workspace', {
+    method: 'GET',
+    handler: async c => {
+      const config = loadConfig()
+      const initialized = Boolean(config.models?.default && config.models?.providers?.length)
+      return c.html(fs.readFileSync(initialized ? WORKSPACE_PAGE_FILE : SETUP_PAGE_FILE, 'utf8'))
+    },
+  }),
+
+  registerApiRoute('/workspace/assets/:file', {
+    method: 'GET',
+    handler: async c => {
+      const file = path.basename(c.req.param('file'))
+      const assetPath = path.join(WORKSPACE_ASSETS_DIRECTORY, 'assets', file)
+      if (!fs.existsSync(assetPath)) return c.text('Not found', 404)
+      return c.body(fs.readFileSync(assetPath), 200, {
+        'content-type': CONTENT_TYPES[path.extname(file).toLowerCase()] || 'application/octet-stream',
+        'cache-control': 'public, max-age=31536000, immutable',
+      })
     },
   }),
 
@@ -185,6 +239,53 @@ export const apiRoutes = [
   registerApiRoute('/aurabrain/settings/models', {
     method: 'GET',
     handler: async c => c.html(fs.readFileSync(MODEL_SETTINGS_PAGE_FILE, 'utf8')),
+  }),
+
+  registerApiRoute('/settings/models', {
+    method: 'GET',
+    handler: async c => c.redirect('/aurabrain/settings/models'),
+  }),
+
+  registerApiRoute('/aurabrain/settings/capabilities', {
+    method: 'GET',
+    handler: async c => c.html(fs.readFileSync(CAPABILITIES_SETTINGS_PAGE_FILE, 'utf8')),
+  }),
+
+  registerApiRoute('/settings/capabilities', {
+    method: 'GET',
+    handler: async c => c.redirect('/aurabrain/settings/capabilities'),
+  }),
+
+  registerApiRoute('/v1/capabilities/settings', {
+    method: 'GET',
+    handler: async c => c.json(loadCapabilitySettings()),
+  }),
+
+  registerApiRoute('/v1/capabilities/settings', {
+    method: 'POST',
+    handler: async c => {
+      try {
+        const body = await c.req.json() as any
+        const mode = (value: unknown): CapabilityDataMode => value === 'demo' ? 'demo' : 'real'
+        saveCapabilitySettings({
+          mail: { enabled: body.mail?.enabled !== false, dataMode: mode(body.mail?.dataMode) },
+          calendar: { enabled: body.calendar?.enabled !== false, dataMode: mode(body.calendar?.dataMode) },
+        })
+        return c.json({ ok: true, settings: loadCapabilitySettings() })
+      } catch (error: any) {
+        return c.json({ ok: false, error: error?.message || String(error) }, 400)
+      }
+    },
+  }),
+
+  registerApiRoute('/v1/capabilities/mail', {
+    method: 'GET',
+    handler: async c => c.json(await readCapabilityMail(Number(c.req.query('limit') || 8))),
+  }),
+
+  registerApiRoute('/v1/capabilities/calendar', {
+    method: 'GET',
+    handler: async c => c.json(await readCapabilityCalendar(Number(c.req.query('days') || 14))),
   }),
 
   registerApiRoute('/admin/status', {

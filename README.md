@@ -4,6 +4,20 @@ AuraBrain 是一个可独立运行、可通过接口调用、也可被二次开�
 
 它负责在后台运行 Agent、Tool 和 Workflow，并通过 HTTP 对外提供能力；CLI 用于启动、检查、调用和开发调试；管理界面用于配置 Runtime、查看状态和调试执行过程。
 
+在 SightTwin 三进程架构中，AuraBrain 是通用 Runtime 层：负责模型调用、Agent、Workflow、任务编排、会话和结果流，不直接实现 Windows 截屏、窗口操作或具体产品业务。SightTwin 提供用户界面和生命周期管理，独立的 C++ `NativeCapabilityHost` 提供 Windows 基础能力。
+
+Runtime 内的核心开发归属如下：
+
+```text
+Agent      理解意图、规划和调用工具
+Memory     会话记忆、工作记忆和历史检索
+Workspace  受控的文件、命令和工作目录上下文
+Workflow   确定性的多步骤任务和可恢复流程
+Tool       外部系统、本地能力和数据源的适配入口
+```
+
+SightTwin 通过 AuraBrain 的稳定 API 调用这些能力，并负责用户交互、产品流程和结果展示；不直接 import AuraBrain 内部模块。`NativeCapabilityHost` 只提供 Windows 或第三方原生能力，不实现 Agent、Memory、Workspace 或产品业务规则。
+
 AuraBrain 基于 [Mastra](https://mastra.ai) 构建，但 Mastra 是内部实现基础，不是 AuraBrain 对外的产品边界。
 
 ```text
