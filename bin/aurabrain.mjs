@@ -3,18 +3,21 @@
 import { execFileSync, spawn } from 'node:child_process'
 import { closeSync, existsSync, mkdirSync, openSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs'
 import readline from 'node:readline/promises'
-import { resolve } from 'node:path'
+import { dirname, resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
 
 process.title = 'AuraBrain.runtime'
 
 const [command = 'help', ...args] = process.argv.slice(2)
+const projectRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const host = process.env.AURABRAIN_HOST || '127.0.0.1'
 const port = Number(process.env.AURABRAIN_PORT || 49000)
 const baseUrl = `http://${host}:${port}`
-const pidFile = resolve('.aurabrain-runtime.pid')
-const devLockFile = resolve('.mastra', 'dev.lock')
-const logDir = resolve('.aurabrain')
+const pidFile = resolve(projectRoot, '.aurabrain-runtime.pid')
+const devLockFile = resolve(projectRoot, '.mastra', 'dev.lock')
+const logDir = resolve(projectRoot, '.aurabrain')
 const logFile = resolve(logDir, 'runtime.log')
+const runtimeEntry = resolve(projectRoot, '.mastra', 'output', 'index.mjs')
 
 function printHelp() {
   console.log(`AuraBrain CLI (brain)
@@ -37,8 +40,9 @@ Alias: aurabrain
 }
 
 function runMastra(mastraCommand, commandArgs) {
-  const mastraEntry = resolve('node_modules/mastra/dist/index.js')
+  const mastraEntry = resolve(projectRoot, 'node_modules/mastra/dist/index.js')
   const child = spawn(process.execPath, [mastraEntry, mastraCommand, ...commandArgs], {
+    cwd: projectRoot,
     stdio: 'inherit',
     shell: false,
   })
@@ -52,10 +56,10 @@ function runMastra(mastraCommand, commandArgs) {
 }
 
 function spawnRuntime() {
-  const runtimeEntry = resolve('.mastra', 'output', 'index.mjs')
   if (!existsSync(logDir)) mkdirSync(logDir, { recursive: true })
   const logStream = openSync(logFile, 'a')
   const child = spawn(process.execPath, [runtimeEntry], {
+    cwd: projectRoot,
     detached: true,
     stdio: ['ignore', logStream, logStream],
     shell: false,
@@ -371,7 +375,7 @@ try {
         await handleAlreadyRunning()
         break
       }
-      if (!existsSync(resolve('.mastra', 'output', 'index.mjs'))) {
+      if (!existsSync(runtimeEntry)) {
         throw new Error('未找到构建产物，请先执行: brain build')
       }
       await startRuntimeDaemon()

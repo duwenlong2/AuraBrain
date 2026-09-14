@@ -11,7 +11,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { registerApiRoute } from '@mastra/core/server'
-import { loadConfig, saveConfig, type AuraBrainConfig } from './lib/config-store.ts'
+import { defaultMcpServers, loadConfig, saveConfig, type AuraBrainConfig } from './lib/config-store.ts'
 import { getSecret, setSecret } from './lib/secret-store.ts'
 import {
   startDeviceCode,
@@ -58,6 +58,16 @@ import {
   streamModelText,
   toOpenAIStream,
 } from './lib/model-runtime.ts'
+import { scanMachine } from './lib/machine-scan.ts'
+import { recommendModels, type UseCase } from './lib/model-recommender.ts'
+import { deployModel, type DeployRequest } from './lib/model-deploy.ts'
+import { runTask } from './task/runner.ts'
+import {
+  getMcpStatus,
+  setMcpEnabled,
+  retryMcpServer,
+} from './mcp/registry.ts'
+import { getCapabilityFlags } from './agent/default-agent.ts'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
@@ -87,6 +97,12 @@ const CAPABILITIES_SETTINGS_PAGE_CANDIDATES = [
   path.resolve(process.cwd(), 'src/main/public/capabilities.html'),
 ]
 const CAPABILITIES_SETTINGS_PAGE_FILE = CAPABILITIES_SETTINGS_PAGE_CANDIDATES.find(p => fs.existsSync(p)) || CAPABILITIES_SETTINGS_PAGE_CANDIDATES[0]
+const RECOMMEND_PAGE_CANDIDATES = [
+  path.resolve(__dirname, 'public/recommend.html'),
+  path.resolve(__dirname, '../../src/main/public/recommend.html'),
+  path.resolve(process.cwd(), 'src/main/public/recommend.html'),
+]
+const RECOMMEND_PAGE_FILE = RECOMMEND_PAGE_CANDIDATES.find(p => fs.existsSync(p)) || RECOMMEND_PAGE_CANDIDATES[0]
 const CONSOLE_PAGE_CANDIDATES = [
   path.resolve(__dirname, 'public/console.html'),
   path.resolve(__dirname, '../../src/main/public/console.html'),
@@ -99,6 +115,7 @@ const WORKSPACE_PAGE_CANDIDATES = [
   path.resolve(process.cwd(), 'src/main/public/workspace/index.html'),
 ]
 const WORKSPACE_PAGE_FILE = WORKSPACE_PAGE_CANDIDATES.find(p => fs.existsSync(p)) || WORKSPACE_PAGE_CANDIDATES[0]
+const HAS_WORKSPACE_PAGE = fs.existsSync(WORKSPACE_PAGE_FILE)
 const WORKSPACE_ASSETS_DIRECTORY = path.dirname(WORKSPACE_PAGE_FILE)
 
 const CONTENT_TYPES: Record<string, string> = {
@@ -110,6 +127,36 @@ const CONTENT_TYPES: Record<string, string> = {
   '.webp': 'image/webp',
   '.svg': 'image/svg+xml',
   '.ico': 'image/x-icon',
+}
+const TASK_PAGE_CANDIDATES = [
+  path.resolve(__dirname, 'public/task.html'),
+  path.resolve(__dirname, '../../src/main/public/task.html'),
+  path.resolve(process.cwd(), 'src/main/public/task.html'),
+]
+const TASK_PAGE_FILE = TASK_PAGE_CANDIDATES.find(p => fs.existsSync(p)) || TASK_PAGE_CANDIDATES[0]
+const CAPABILITIES_PAGE_CANDIDATES = [
+  path.resolve(__dirname, 'public/capabilities.html'),
+  path.resolve(__dirname, '../../src/main/public/capabilities.html'),
+  path.resolve(process.cwd(), 'src/main/public/capabilities.html'),
+]
+const CAPABILITIES_PAGE_FILE = CAPABILITIES_PAGE_CANDIDATES.find(p => fs.existsSync(p)) || CAPABILITIES_PAGE_CANDIDATES[0]
+
+function preparePage(html: string): string {
+  const prepared = html
+    .replaceAll('.nav{display:none}.nav.active{display:flex}', '.nav{display:flex;overflow:auto}')
+    .replaceAll("location.href='/settings/models'", "location.href='/aurabrain/settings/models'")
+    .replaceAll('location.href="/settings/models"', 'location.href="/aurabrain/settings/models"')
+    .replaceAll("location.href='/settings/capabilities'", "location.href='/aurabrain/settings/capabilities'")
+    .replaceAll('location.href="/settings/capabilities"', 'location.href="/aurabrain/settings/capabilities"')
+  if (
+    prepared.includes(`onclick="location.href='/aurabrain/settings/capabilities'"`)
+    || prepared.includes('<button class="nav active"><span>◫</span>本机能力</button>')
+    || prepared.includes('<button class="nav active"><span>◫</span><div><strong>能力中心</strong>')
+  ) return prepared
+  return prepared.replaceAll(
+    `<button class="nav" onclick="location.href='/setup'">`,
+    `<button class="nav" onclick="location.href='/aurabrain/settings/capabilities'"><span>◈</span>能力中心</button><button class="nav" onclick="location.href='/setup'">`,
+  )
 }
 
 // 设备码流程的临时状态（POC 用内存即可）
@@ -199,12 +246,12 @@ async function modelChatHandler(c: any) {
 export const apiRoutes = [
   registerApiRoute('/', {
     method: 'GET',
-    handler: async c => {
+    handler: async (c: any) => {
       const config = loadConfig()
       const initialized = Boolean(config.models?.default && config.models?.providers?.length)
-      const html = initialized
+      const html = initialized && HAS_WORKSPACE_PAGE
         ? fs.readFileSync(WORKSPACE_PAGE_FILE, 'utf8')
-        : fs.readFileSync(SETUP_PAGE_FILE, 'utf8')
+        : preparePage(fs.readFileSync(initialized ? TASK_PAGE_FILE : SETUP_PAGE_FILE, 'utf8'))
       return c.html(html)
     },
   }),
@@ -214,7 +261,7 @@ export const apiRoutes = [
     handler: async c => {
       const config = loadConfig()
       const initialized = Boolean(config.models?.default && config.models?.providers?.length)
-      return c.html(fs.readFileSync(initialized ? WORKSPACE_PAGE_FILE : SETUP_PAGE_FILE, 'utf8'))
+      return c.html(preparePage(fs.readFileSync(initialized && HAS_WORKSPACE_PAGE ? WORKSPACE_PAGE_FILE : initialized ? TASK_PAGE_FILE : SETUP_PAGE_FILE, 'utf8')))
     },
   }),
 
@@ -231,29 +278,34 @@ export const apiRoutes = [
     },
   }),
 
+  registerApiRoute('/playground', {
+    method: 'GET',
+    handler: async c => c.html(preparePage(fs.readFileSync(CONSOLE_PAGE_FILE, 'utf8'))),
+  }),
+
   registerApiRoute('/setup', {
     method: 'GET',
-    handler: async c => c.html(fs.readFileSync(SETUP_PAGE_FILE, 'utf8')),
+    handler: async c => c.html(preparePage(fs.readFileSync(SETUP_PAGE_FILE, 'utf8'))),
+  }),
+
+  registerApiRoute('/aurabrain/settings', {
+    method: 'GET',
+    handler: c => c.redirect('/aurabrain/settings/models', 302),
   }),
 
   registerApiRoute('/aurabrain/settings/models', {
     method: 'GET',
-    handler: async c => c.html(fs.readFileSync(MODEL_SETTINGS_PAGE_FILE, 'utf8')),
-  }),
-
-  registerApiRoute('/settings/models', {
-    method: 'GET',
-    handler: async c => c.redirect('/aurabrain/settings/models'),
+    handler: async c => c.html(preparePage(fs.readFileSync(MODEL_SETTINGS_PAGE_FILE, 'utf8'))),
   }),
 
   registerApiRoute('/aurabrain/settings/capabilities', {
     method: 'GET',
-    handler: async c => c.html(fs.readFileSync(CAPABILITIES_SETTINGS_PAGE_FILE, 'utf8')),
+    handler: async c => c.html(preparePage(fs.readFileSync(CAPABILITIES_PAGE_FILE, 'utf8'))),
   }),
 
-  registerApiRoute('/settings/capabilities', {
+  registerApiRoute('/recommend', {
     method: 'GET',
-    handler: async c => c.redirect('/aurabrain/settings/capabilities'),
+    handler: async c => c.html(preparePage(fs.readFileSync(RECOMMEND_PAGE_FILE, 'utf8'))),
   }),
 
   registerApiRoute('/v1/capabilities/settings', {
@@ -344,6 +396,56 @@ export const apiRoutes = [
         }
       }
       return c.json({ ok: true, candidates })
+    },
+  }),
+
+  // ---------- 机器扫描 ----------
+  registerApiRoute('/admin/scan/machine', {
+    method: 'GET',
+    handler: async c => {
+      try {
+        const machine = await scanMachine()
+        return c.json({ ok: true, machine })
+      } catch (error: any) {
+        return c.json({ ok: false, error: error?.message || String(error) }, 500)
+      }
+    },
+  }),
+
+  // ---------- 模型推荐 ----------
+  registerApiRoute('/admin/recommend', {
+    method: 'GET',
+    handler: async c => {
+      try {
+        const useCase = (c.req.query('useCase') || 'general') as UseCase
+        const preferLocal = c.req.query('preferLocal') !== 'false'
+        const validUseCases: UseCase[] = ['coding', 'general', 'vision', 'long-context']
+        if (!validUseCases.includes(useCase)) {
+          return c.json({ ok: false, error: `无效用途：${useCase}（可选 ${validUseCases.join('/')})` }, 400)
+        }
+        const machine = await scanMachine()
+        const result = recommendModels(machine, useCase, preferLocal)
+        return c.json({ ok: true, ...result, machine })
+      } catch (error: any) {
+        return c.json({ ok: false, error: error?.message || String(error) }, 500)
+      }
+    },
+  }),
+
+  // ---------- 一键部署 ----------
+  registerApiRoute('/admin/deploy', {
+    method: 'POST',
+    handler: async c => {
+      try {
+        const body = await c.req.json() as DeployRequest
+        if (!body.modelId || !body.modelName || !body.source) {
+          return c.json({ ok: false, error: '缺少 modelId / modelName / source' }, 400)
+        }
+        const result = await deployModel(body)
+        return c.json(result)
+      } catch (error: any) {
+        return c.json({ ok: false, error: error?.message || String(error) }, 500)
+      }
     },
   }),
 
@@ -593,6 +695,116 @@ export const apiRoutes = [
       } catch (e: any) {
         return c.json({ ok: false, tool: toolId, durationMs: Date.now() - t0, error: e?.message || String(e) })
       }
+    },
+  }),
+
+  // ---------- 任务控制台（SSE 实时推送执行过程） ----------
+  registerApiRoute('/admin/task', {
+    method: 'POST',
+    handler: async c => {
+      const body = (await c.req.json().catch(() => ({}))) as { task?: string }
+      const task = body.task?.trim()
+      if (!task) return c.json({ ok: false, error: '任务不能为空' }, 400)
+
+      const encoder = new TextEncoder()
+      const stream = new ReadableStream({
+        async start(controller) {
+          let closed = false
+          const send = (ev: Record<string, unknown>) => {
+            if (closed) return
+            try {
+              controller.enqueue(encoder.encode(`data: ${JSON.stringify(ev)}\n\n`))
+            } catch { /* stream already closed */ }
+          }
+          // 心跳：每 20s 一条注释帧，防代理断连
+          const hb = setInterval(() => {
+            if (closed) return
+            try { controller.enqueue(encoder.encode(`: heartbeat\n\n`)) } catch { /* ignore */ }
+          }, 20_000)
+          c.req.raw.signal.addEventListener('abort', () => {
+            closed = true
+            clearInterval(hb)
+            try { controller.close() } catch { /* ignore */ }
+          })
+          try {
+            await runTask(task, send, c.req.raw.signal)
+          } catch (error: any) {
+            send({ type: 'error', error: error?.message || String(error) })
+          } finally {
+            closed = true
+            clearInterval(hb)
+            try { controller.close() } catch { /* ignore */ }
+          }
+        },
+      })
+
+      return new Response(stream, {
+        headers: {
+          'Content-Type': 'text/event-stream; charset=utf-8',
+          'Cache-Control': 'no-cache, no-transform',
+          Connection: 'keep-alive',
+          'X-Accel-Buffering': 'no',
+        },
+      })
+    },
+  }),
+
+  // ---------- 能力中心 ----------
+  registerApiRoute('/admin/capabilities', {
+    method: 'GET',
+    handler: async c => {
+      const config = loadConfig()
+      if (!config.mcpServers) {
+        config.mcpServers = defaultMcpServers()
+        saveConfig(config)
+      }
+      const mcp = await getMcpStatus()
+      return c.json({
+        ok: true,
+        capabilities: getCapabilityFlags(),
+        mcpServers: mcp,
+      })
+    },
+  }),
+
+  registerApiRoute('/admin/capabilities/mcp', {
+    method: 'POST',
+    handler: async c => {
+      const body = (await c.req.json().catch(() => ({}))) as {
+        name?: string
+        action?: 'enable' | 'disable' | 'retry'
+        enabled?: boolean
+      }
+      const name = body.name?.trim()
+      if (!name) return c.json({ ok: false, error: '缺少 MCP 服务器名称' }, 400)
+      try {
+        if (body.action === 'retry') {
+          const state = await retryMcpServer(name)
+          return c.json({ ok: state.status === 'ready', name, status: state.status, error: state.error, toolCount: state.toolNames.length })
+        }
+        const enabled = body.action === 'enable' ? true : body.action === 'disable' ? false : Boolean(body.enabled)
+        const state = await setMcpEnabled(name, enabled)
+        return c.json({ ok: true, name, enabled: state.status !== 'disabled', status: state.status, error: state.error, toolCount: state.toolNames.length })
+      } catch (error: any) {
+        return c.json({ ok: false, error: error?.message || String(error) }, 400)
+      }
+    },
+  }),
+
+  registerApiRoute('/admin/capabilities/flags', {
+    method: 'POST',
+    handler: async c => {
+      const body = (await c.req.json().catch(() => ({}))) as {
+        browser?: boolean
+        filesystem?: boolean
+      }
+      const config = loadConfig()
+      const caps = config.capabilities ?? {}
+      if (typeof body.browser === 'boolean') caps.browser = body.browser
+      if (typeof body.filesystem === 'boolean') caps.filesystem = body.filesystem
+      config.capabilities = caps
+      saveConfig(config)
+      return c.json({ ok: true, capabilities: getCapabilityFlags() })
     },
   }),
 ]

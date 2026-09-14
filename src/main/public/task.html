@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>AuraBrain · 任务控制台</title>
+<style>
+:root{--bg:#0d1211;--panel:#151c19;--panel2:#101614;--field:#0b110f;--line:#2b3933;--text:#eef3ed;--muted:#9daaa1;--lime:#c8f169;--limeInk:#18220f;--cyan:#8edbd0;--gold:#e9c875;--red:#ff9c8f}
+*{box-sizing:border-box}
+body{margin:0;min-height:100vh;background:radial-gradient(circle at 78% 0,#28453b 0,transparent 28%),linear-gradient(135deg,#0d1211,#111b17 60%,#0b1110);color:var(--text);font:13px 'Aptos','Segoe UI','Microsoft YaHei',sans-serif}
+.app{display:grid;grid-template-columns:230px 1fr;min-height:100vh}
+.side{padding:26px 16px;border-right:1px solid var(--line);background:#0c1210b8}
+.brand{display:flex;align-items:center;gap:10px;font-weight:700;margin:0 10px 42px}
+.brand i{display:grid;place-items:center;width:31px;height:31px;border:1px solid #c8f16988;border-radius:9px;color:var(--lime);font-style:normal}
+.nav-title{color:#68766d;font-size:10px;letter-spacing:.14em;text-transform:uppercase;margin:22px 11px 9px}
+.nav{display:flex;align-items:center;gap:10px;width:100%;border:0;border-radius:7px;background:transparent;color:var(--muted);padding:10px 11px;text-align:left;cursor:pointer;font:inherit}
+.nav:hover,.nav.active{background:#c8f16916;color:var(--lime)}
+.nav span{width:18px;color:inherit}
+.side-foot{position:absolute;bottom:23px;color:#68766d;font-size:11px;padding:0 11px}
+.main{width:min(960px,calc(100% - 48px));margin:0 auto;padding:40px 0 80px}
+.top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:26px}
+.eyebrow{color:var(--lime);font-size:10px;letter-spacing:.15em;text-transform:uppercase;margin-bottom:10px}
+.top h1{font-size:30px;margin:0 0 8px;letter-spacing:-.02em}
+.top p{color:var(--muted);margin:0}
+.card{background:#131b18dd;border:1px solid var(--line);border-radius:12px;padding:22px;box-shadow:0 20px 60px #00000025;margin-bottom:18px}
+.card h2{margin:0 0 6px;font-size:17px}
+.desc{color:var(--muted);line-height:1.6;margin:0 0 16px}
+.task-input{width:100%;resize:vertical;min-height:74px;border:1px solid var(--line);border-radius:8px;background:var(--panel2);color:var(--text);padding:13px;font:inherit;outline:0}
+.task-input:focus{border-color:var(--lime)}
+.actions{display:flex;justify-content:space-between;align-items:center;margin-top:14px;gap:15px}
+.status{color:var(--muted);min-height:20px}
+.status.ok{color:var(--cyan)}.status.error{color:var(--red)}.status.run{color:var(--gold)}
+button.primary{border:0;border-radius:7px;padding:11px 18px;background:var(--lime);color:var(--limeInk);font-weight:700;cursor:pointer;font:inherit}
+button.primary:disabled{opacity:.5;cursor:wait}
+button.ghost{border:1px solid var(--line);border-radius:7px;padding:10px 15px;background:transparent;color:var(--muted);cursor:pointer;font:inherit}
+button.ghost:hover{color:var(--text);border-color:var(--muted)}
+.stream{margin-top:18px;border-top:1px solid var(--line);padding-top:16px;display:flex;flex-direction:column;gap:10px}
+.ev{border:1px solid var(--line);border-radius:8px;padding:11px 13px;background:var(--field);animation:fade .25s ease}
+@keyframes fade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+.ev .tag{font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:6px;display:flex;align-items:center;gap:7px}
+.ev .tag .dot{width:7px;height:7px;border-radius:50%;background:var(--muted)}
+.ev.text .dot{background:var(--lime)}
+.ev.tool-call .dot{background:var(--cyan)}
+.ev.tool-result .dot{background:var(--gold)}
+.ev.tool-result.err .dot{background:var(--red)}
+.ev.error .dot{background:var(--red)}
+.ev.done .dot{background:var(--lime)}
+.ev .body{white-space:pre-wrap;line-height:1.65;color:#d5dfd7;word-break:break-word}
+.ev .toolname{color:var(--cyan);font-family:ui-monospace,Consolas,monospace;font-size:12px}
+.ev .args,.ev .result{margin-top:7px;color:var(--muted);font-family:ui-monospace,Consolas,monospace;font-size:11.5px;white-space:pre-wrap;word-break:break-word;max-height:180px;overflow:auto;border-top:1px dashed var(--line);padding-top:7px}
+.ev.error .body{color:var(--red)}
+.empty{color:var(--muted);padding:26px 0;text-align:center}
+.hint{color:#68766d;font-size:11.5px;margin-top:10px;line-height:1.6}
+@media(max-width:720px){.app{grid-template-columns:1fr}.side{position:static;border-right:0;border-bottom:1px solid var(--line);padding:15px}.brand{margin-bottom:15px}.nav-title,.side-foot{display:none}.nav{display:none}.nav.active{display:flex}.main{width:calc(100% - 28px);padding:30px 0}}
+</style>
+</head>
+<body><div class="app">
+<aside class="side">
+  <div class="brand"><i>✦</i>AuraBrain</div>
+  <div class="nav-title">Workspace</div>
+  <button class="nav active"><span>◌</span>任务控制台</button>
+  <button class="nav" onclick="location.href='/playground'"><span>▣</span>模型测试</button>
+  <div class="nav-title">Settings</div>
+  <button class="nav" onclick="location.href='/aurabrain/settings/models'"><span>⚙</span>模型工作台</button>
+  <button class="nav" onclick="location.href='/aurabrain/settings/capabilities'"><span>◈</span>能力中心</button>
+  <button class="nav" onclick="location.href='/setup'"><span>?</span>初始化引导</button>
+  <div class="side-foot">Local Runtime · 49000</div>
+</aside>
+<main class="main">
+  <header class="top">
+    <div>
+      <div class="eyebrow">Task Console</div>
+      <h1>任务控制台</h1>
+      <p>用一句话描述任务，AuraBrain 会调用本机能力（浏览器 / 文件 / 搜索 / MCP）逐步完成，并把过程实时展示在这里。</p>
+    </div>
+  </header>
+  <section class="card">
+    <h2>新任务</h2>
+    <p class="desc">例如：「打开百度，搜索 AI 最新消息并总结」「把桌面上的 report.pdf 摘要成 5 条要点」。</p>
+    <textarea class="task-input" id="task" placeholder="输入任务，例如：打开 baidu 搜 AI"></textarea>
+    <div class="actions">
+      <div class="status" id="status">就绪</div>
+      <div style="display:flex;gap:10px">
+        <button class="ghost" id="stop" hidden>停止</button>
+        <button class="primary" id="run">开始执行</button>
+      </div>
+    </div>
+    <div class="stream" id="stream"><div class="empty" id="empty">还没有任务。输入一句话，点「开始执行」。</div></div>
+    <div class="hint">提示：浏览器会打开一个独立的 AuraBrain 窗口（不影响你自己的浏览器）。涉及登录 / 支付 / 删除等敏感操作时，Agent 会先停下来向你确认。</div>
+  </section>
+</main>
+</div>
+<script>
+const task=document.getElementById('task'),run=document.getElementById('run'),stop=document.getElementById('stop'),status=document.getElementById('status'),stream=document.getElementById('stream'),empty=document.getElementById('empty');
+let controller=null;
+function clearEmpty(){if(empty&&empty.parentNode)empty.remove()}
+function addEvent(ev){
+  clearEmpty();
+  const div=document.createElement('div');
+  div.className='ev '+ev.type;
+  const tag=document.createElement('div');tag.className='tag';
+  const dot=document.createElement('span');dot.className='dot';tag.append(dot);
+  const label={start:'任务开始',text:'回复', 'tool-call':'调用工具','tool-result':'工具结果',error:'错误',done:'完成'}[ev.type]||ev.type;
+  tag.append(document.createTextNode(label));
+  div.append(tag);
+  const body=document.createElement('div');body.className='body';
+  if(ev.type==='tool-call'){
+    const tn=document.createElement('span');tn.className='toolname';tn.textContent=ev.tool||'';body.append(tn);
+    if(ev.args){const a=document.createElement('div');a.className='args';a.textContent=JSON.stringify(ev.args,null,2);div.append(a)}
+  }else if(ev.type==='tool-result'){
+    if(ev.ok===false)div.classList.add('err');
+    const tn=document.createElement('span');tn.className='toolname';tn.textContent=(ev.tool||'')+(ev.ok===false?'（失败）':'（成功）');body.append(tn);
+    if(ev.result){const r=document.createElement('div');r.className='result';r.textContent=ev.result;div.append(r)}
+  }else{
+    body.textContent=ev.text||ev.error||'';
+  }
+  div.append(body);
+  stream.append(div);
+  stream.scrollTop=stream.scrollHeight;
+  return div;
+}
+function setStatus(text,cls){status.textContent=text;status.className='status'+(cls?' '+cls:'')}
+async function start(){
+  const text=task.value.trim();
+  if(!text){setStatus('请先输入任务','error');return}
+  run.disabled=true;stop.hidden=false;clearEmpty();
+  setStatus('执行中…','run');
+  controller=new AbortController();
+  try{
+    const response=await fetch('/admin/task',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({task:text}),signal:controller.signal});
+    if(!response.ok||!response.body){const err=await response.text();throw new Error(err||('HTTP '+response.status))}
+    const reader=response.body.getReader();
+    const decoder=new TextDecoder();
+    let buf='';
+    while(true){
+      const {done,value}=await reader.read();
+      if(done)break;
+      buf+=decoder.decode(value,{stream:true});
+      let idx;
+      while((idx=buf.indexOf('\n\n'))>=0){
+        const frame=buf.slice(0,idx);buf=buf.slice(idx+2);
+        for(const line of frame.split('\n')){
+          if(!line.startsWith('data:'))continue;
+          const payload=line.slice(5).trim();
+          if(!payload)continue;
+          try{const ev=JSON.parse(payload);addEvent(ev);
+            if(ev.type==='error')setStatus('出错：'+(ev.error||''),'error');
+            if(ev.type==='done')setStatus('完成','ok');
+          }catch{}
+        }
+      }
+    }
+    setStatus('完成','ok');
+  }catch(error){
+    if(error.name==='AbortError')setStatus('已停止','');
+    else setStatus('出错：'+(error.message||String(error)),'error');
+  }finally{
+    run.disabled=false;stop.hidden=true;controller=null;
+  }
+}
+run.addEventListener('click',start);
+stop.addEventListener('click',()=>controller&&controller.abort());
+task.addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&e.key==='Enter')start()});
+</script>
+</body>
+</html>

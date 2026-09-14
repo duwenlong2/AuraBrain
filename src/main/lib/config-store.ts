@@ -12,6 +12,9 @@ export interface AuraBrainConfig {
       enabled?: boolean
       dataMode?: 'real' | 'demo'
     }
+    browser?: boolean
+    filesystem?: boolean
+    webSearch?: boolean
   }
   models?: {
     default?: string
@@ -44,6 +47,36 @@ export interface AuraBrainConfig {
     userKey?: string
     passwordKey?: string
   }
+  /**
+   * MCP 服务器配置（能力中心管理）。
+   * 每个服务器独立连接、独立故障隔离：某个 MCP 挂了只影响它自己，
+   * 通用能力（浏览器/文件/搜索）不受影响。
+   */
+  mcpServers?: Record<string, McpServerConfig>
+}
+
+/**
+ * 单个 MCP 服务器配置。
+ * - stdio：本地进程（command + args + env）
+ * - http：远程/本地 HTTP 端点（url + headers）
+ */
+export interface McpServerConfig {
+  /** 显示名称（能力中心展示用） */
+  name?: string
+  /** 是否启用（一键禁用/启用的开关） */
+  enabled?: boolean
+  /** stdio 模式：启动命令 */
+  command?: string
+  /** stdio 模式：命令参数 */
+  args?: string[]
+  /** stdio 模式：环境变量 */
+  env?: Record<string, string>
+  /** http 模式：端点 URL */
+  url?: string
+  /** http 模式：请求头（如 Authorization） */
+  headers?: Record<string, string>
+  /** 连接/调用超时（毫秒），默认 30000 */
+  timeout?: number
 }
 
 function userConfigPath(): string {
@@ -91,4 +124,16 @@ export function saveConfig(config: AuraBrainConfig): void {
   const temporaryPath = `${filePath}.tmp`
   fs.writeFileSync(temporaryPath, `${JSON.stringify(config, null, 2)}\n`, { encoding: 'utf8', mode: 0o600 })
   fs.renameSync(temporaryPath, filePath)
+}
+
+/** 默认 MCP 服务器种子。仅在 config.json 还没有 mcpServers 时由能力中心写入。 */
+export function defaultMcpServers(): Record<string, McpServerConfig> {
+  return {
+    parallel: {
+      name: 'Parallel Web Search',
+      enabled: true,
+      url: 'https://search.parallel.ai/mcp',
+      timeout: 30_000,
+    },
+  }
 }

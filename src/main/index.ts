@@ -11,6 +11,8 @@ import { allMailTools } from './tools/mail-tools.ts'
 import { allCalendarTools } from './tools/calendar-tools.ts'
 import { allOutlookTools } from './tools/outlook-tools.ts'
 import { apiRoutes } from './routes.ts'
+import { shutdownDefaultAgent } from './agent/default-agent.ts'
+import { disconnectAllMcp } from './mcp/registry.ts'
 
 export const mastra = new Mastra({
   agents: {
@@ -35,3 +37,21 @@ export const mastra = new Mastra({
     apiRoutes,
   },
 })
+
+// ---------- 优雅关闭（dev 模式 Ctrl+C / SIGTERM） ----------
+// 关闭浏览器（Chromium）并断开 MCP 连接。
+// 注意：Windows 下 `brain stop` 是硬杀（taskkill /T /F），不走这里，
+// 孤儿 Chromium 进程由 CLI 端（bin/aurabrain.mjs）的 taskkill 兜底清理。
+let shuttingDown = false
+async function gracefulShutdown(signal: string): Promise<void> {
+  if (shuttingDown) return
+  shuttingDown = true
+  console.log(`[AuraBrain] 收到 ${signal}，正在关闭浏览器与 MCP 连接…`)
+  try {
+    await Promise.allSettled([shutdownDefaultAgent(), disconnectAllMcp()])
+  } finally {
+    setTimeout(() => process.exit(0), 300).unref()
+  }
+}
+process.on('SIGINT', () => void gracefulShutdown('SIGINT'))
+process.on('SIGTERM', () => void gracefulShutdown('SIGTERM'))

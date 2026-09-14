@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>AuraBrain · 模型推荐</title>
+<style>
+:root{--bg:#0d1211;--panel:#151c19;--field:#0b110f;--line:#2b3933;--text:#eef3ed;--muted:#9daaa1;--lime:#c8f169;--ink:#18220f;--cyan:#8edbd0;--gold:#e9c875;--red:#ff9c8f}*{box-sizing:border-box}body{margin:0;min-height:100vh;background:radial-gradient(circle at 82% 0,#28453b 0,transparent 28%),linear-gradient(135deg,#0d1211,#111b17 60%,#0b1110);color:var(--text);font:13px 'Aptos','Segoe UI','Microsoft YaHei',sans-serif}.app{display:grid;grid-template-columns:230px 1fr;min-height:100vh}.side{padding:26px 16px;border-right:1px solid var(--line);background:#0c1210b8}.brand{display:flex;align-items:center;gap:10px;font-weight:700;margin:0 10px 42px}.brand i{display:grid;place-items:center;width:31px;height:31px;border:1px solid #c8f16988;border-radius:9px;color:var(--lime);font-style:normal}.nav-title{color:#68766d;font-size:10px;letter-spacing:.14em;text-transform:uppercase;margin:22px 11px 9px}.nav{display:flex;align-items:center;gap:10px;width:100%;border:0;border-radius:7px;background:transparent;color:var(--muted);padding:10px 11px;text-align:left;cursor:pointer;font:inherit}.nav.active,.nav:hover{background:#c8f16916;color:var(--lime)}.nav span{width:18px}.side-foot{position:absolute;bottom:23px;color:#68766d;font-size:11px;padding:0 11px}.main{width:min(1100px,calc(100% - 48px));margin:0 auto;padding:40px 0 70px}.top{display:flex;justify-content:space-between;align-items:flex-end;gap:20px;margin-bottom:25px}.eyebrow{color:var(--lime);font-size:10px;letter-spacing:.15em;text-transform:uppercase;margin-bottom:9px}.top h1{font-size:29px;margin:0 0 8px}.top p{color:var(--muted);margin:0}.scan{border:1px solid #66836e;border-radius:7px;background:#c8f169;color:var(--ink);padding:11px 16px;font:inherit;font-weight:700;cursor:pointer}.scan:disabled{opacity:.6;cursor:wait}.panel{background:#131b18e8;border:1px solid var(--line);border-radius:12px;padding:19px;box-shadow:0 20px 60px #00000025;margin-bottom:18px}.panel h2{font-size:15px;margin:0 0 4px}.desc{color:var(--muted);margin:0 0 14px;font-size:12px}.machine-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}.mcell{background:var(--field);border:1px solid var(--line);border-radius:8px;padding:10px 12px}.mcell .k{color:var(--muted);font-size:11px;margin-bottom:4px}.mcell .v{font-size:13px;font-weight:600;word-break:break-all}.viability{display:flex;align-items:center;gap:10px;margin-top:14px;padding:10px 12px;border-radius:8px;border:1px solid var(--line);background:var(--field)}.viability .badge{font-weight:700;font-size:12px;padding:3px 9px;border-radius:20px}.viability.excellent .badge{background:#c8f16922;color:var(--lime)}.viability.good .badge{background:#8edbd022;color:var(--cyan)}.viability.limited .badge{background:#e9c87522;color:var(--gold)}.viability.poor .badge{background:#ff9c8f22;color:var(--red)}.viability .note{color:var(--muted);font-size:12px}.controls{display:flex;flex-wrap:wrap;gap:14px;align-items:center}.seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}.seg button{border:0;background:transparent;color:var(--muted);padding:8px 14px;font:inherit;cursor:pointer}.seg button.active{background:#c8f1691f;color:var(--lime)}.seg label{padding:8px 14px;font:inherit;color:var(--muted);cursor:pointer;display:flex;align-items:center;gap:6px}.rec{display:flex;justify-content:space-between;align-items:center;gap:14px;padding:14px;border:1px solid var(--line);border-radius:10px;margin-bottom:10px;background:var(--field)}.rec .info{flex:1;min-width:0}.rec .name{font-weight:700;font-size:14px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}.rec .reason{color:var(--muted);font-size:12px;margin-top:5px;line-height:1.5}.rec .meta{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap}.tag{font-size:11px;padding:2px 8px;border-radius:20px;border:1px solid var(--line);color:var(--muted)}.tag.local{color:var(--cyan);border-color:#8edbd055}.tag.cloud{color:var(--gold);border-color:#e9c87555}.tag.vision{color:var(--lime);border-color:#c8f16955}.tag.fit{color:var(--lime);border-color:#c8f16955}.tag.nofit{color:var(--red);border-color:#ff9c8f55}.score{font-size:20px;font-weight:700;color:var(--lime);min-width:44px;text-align:right}.deploy{border:1px solid #66836e;border-radius:7px;background:#c8f169;color:var(--ink);padding:8px 14px;font:inherit;font-weight:700;cursor:pointer;white-space:nowrap}.deploy:disabled{opacity:.6;cursor:wait}.deploy.cloud{background:transparent;color:var(--gold);border-color:#e9c87555}.steps{margin-top:14px;padding:12px;border:1px solid var(--line);border-radius:8px;background:var(--field);display:none}.steps.show{display:block}.step{display:flex;gap:8px;align-items:flex-start;padding:4px 0;font-size:12px}.step .dot{width:8px;height:8px;border-radius:50%;margin-top:4px;flex-shrink:0}.step.ok .dot{background:var(--lime)}.step.fail .dot{background:var(--red)}.step .lbl{font-weight:600;min-width:70px}.step .det{color:var(--muted)}.empty{color:var(--muted);text-align:center;padding:30px 0}.hidden{display:none}
+</style>
+</head>
+<body><div class="app"><aside class="side"><div class="brand"><i>✦</i>AuraBrain</div><div class="nav-title">Workspace</div><button class="nav" onclick="location.href='/'"><span>◌</span>模型测试</button><button class="nav" onclick="location.href='/aurabrain/settings/models'"><span>⚙</span>模型工作台</button><div class="nav-title">Smart</div><button class="nav active"><span>✧</span>模型推荐</button><button class="nav" onclick="location.href='/setup'"><span>?</span>初始化引导</button><div class="side-foot">Local Runtime · 49000</div></aside><main class="main"><header class="top"><div><div class="eyebrow">Smart / Recommend</div><h1>模型推荐</h1><p>扫描本机硬件与本地运行时，按用途推荐最合适的模型，一键部署启动。</p></div><button class="scan" id="scan">扫描本机</button></header>
+
+<section class="panel hidden" id="machine-panel"><h2>本机概况</h2><p class="desc" id="machine-summary"></p><div class="machine-grid" id="machine-grid"></div><div class="viability" id="viability"><span class="badge" id="viability-badge"></span><span class="note" id="viability-note"></span></div></section>
+
+<section class="panel"><h2>选择用途</h2><p class="desc">选择主要用途，引擎会据此排序推荐。本地/云端偏好可切换。</p><div class="controls"><div class="seg" id="usecase"><button data-v="coding">编码</button><button data-v="general" class="active">通用</button><button data-v="vision">视觉</button><button data-v="long-context">长上下文</button></div><div class="seg" id="prefer"><label><input type="radio" name="prefer" value="local" checked> 优先本地</label><label><input type="radio" name="prefer" value="cloud"> 优先云端</label></div></div></section>
+
+<section class="panel"><h2>推荐结果</h2><p class="desc" id="rec-desc">点击「扫描本机」后，这里会显示按得分排序的推荐。</p><div id="recs"><div class="empty">尚未扫描。</div></div></section>
+
+</main></div>
+<script>
+const $=id=>document.getElementById(id);
+let machine=null, currentUseCase='general';
+
+$('scan').onclick=async()=>{
+  $('scan').disabled=true; $('scan').textContent='扫描中…';
+  try{
+    const r=await fetch('/admin/scan/machine'); const d=await r.json();
+    if(!d.ok) throw Error(d.error||'扫描失败');
+    machine=d.machine; renderMachine();
+    await loadRecs();
+  }catch(e){ $('rec-desc').textContent='扫描失败：'+e.message; }
+  finally{ $('scan').disabled=false; $('scan').textContent='重新扫描'; }
+};
+
+function renderMachine(){
+  const m=machine;
+  $('machine-panel').classList.remove('hidden');
+  $('machine-summary').textContent=m.machineSummary||`${m.gpu.name} · ${m.cpuCores} 核 · ${m.ramTotalGb}GB 内存 · ${m.arch}`;
+  const cells=[
+    ['GPU', m.gpu.name],
+    ['显存', m.gpu.vramTotalGb!=null? m.gpu.vramTotalGb+' GB':'未知'],
+    ['CPU', m.cpuModel],
+    ['核心', m.cpuCores+' 核'],
+    ['内存', m.ramTotalGb+' GB'],
+    ['磁盘可用', m.diskFreeGb+' GB'],
+    ['架构', m.arch],
+    ['系统', m.osRelease],
+  ];
+  $('machine-grid').innerHTML=cells.map(([k,v])=>`<div class="mcell"><div class="k">${k}</div><div class="v">${v}</div></div>`).join('');
+  // runtimes
+  const rt=m.runtimes.filter(x=>x.installed);
+  if(rt.length){
+    const rtCell=document.createElement('div'); rtCell.className='mcell';
+    rtCell.innerHTML=`<div class="k">本地运行时</div><div class="v">${rt.map(x=>x.name+(x.models.length?` (${x.models.length})`:'')).join('、')}</div>`;
+    $('machine-grid').append(rtCell);
+  }
+}
+
+function renderViability(v){
+  const el=$('viability'); el.className='viability '+v.localViability;
+  const labels={excellent:'本地优秀',good:'本地良好',limited:'本地受限',poor:'本地不划算'};
+  $('viability-badge').textContent=labels[v.localViability]||v.localViability;
+  $('viability-note').textContent=v.viabilityNote;
+}
+
+async function loadRecs(){
+  const prefer=$('prefer').querySelector('input:checked').value;
+  $('rec-desc').textContent='正在推荐…';
+  try{
+    const r=await fetch(`/admin/recommend?useCase=${currentUseCase}&preferLocal=${prefer==='local'}`);
+    const d=await r.json();
+    if(!d.ok) throw Error(d.error||'推荐失败');
+    renderViability(d);
+    renderRecs(d.recommendations);
+    $('rec-desc').textContent=`共 ${d.recommendations.length} 条推荐（按得分排序）。本地模型点「一键部署」会自动拉取并设为默认。`;
+  }catch(e){ $('rec-desc').textContent='推荐失败：'+e.message; }
+}
+
+function renderRecs(recs){
+  const box=$('recs'); box.innerHTML='';
+  if(!recs.length){ box.innerHTML='<div class="empty">没有匹配的推荐。</div>'; return; }
+  for(const rec of recs){
+    const el=document.createElement('div'); el.className='rec';
+    const tags=[
+      `<span class="tag ${rec.source}">${rec.source==='local'?'本地':'云端'}</span>`,
+      rec.vision?'<span class="tag vision">视觉</span>':'',
+      rec.fitsMachine?'<span class="tag fit">本机可跑</span>':'<span class="tag nofit">本机受限</span>',
+      rec.contextTokens>=100000?`<span class="tag">${(rec.contextTokens/1000).toFixed(0)}k 上下文</span>`:'',
+    ].join('');
+    el.innerHTML=`<div class="info"><div class="name">${rec.name} ${tags}</div><div class="reason">${rec.reason}</div></div><div class="score">${rec.score}</div><button class="deploy ${rec.source}">${rec.source==='local'?'一键部署':'配置云端'}</button>`;
+    el.querySelector('.deploy').onclick=()=>deploy(rec, el);
+    box.append(el);
+  }
+}
+
+async function deploy(rec, el){
+  const btn=el.querySelector('.deploy'); btn.disabled=true; btn.textContent='部署中…';
+  const body={ modelId:rec.id, modelName:rec.name, source:rec.source, vision:rec.vision, runtime:rec.runtime };
+  if(rec.source==='cloud'){
+    // 云端需要 baseUrl + apiKey
+    const baseUrl=prompt('云端 API 地址（OpenAI 兼容，以 /v1 结尾）：','https://api.openai.com/v1');
+    if(!baseUrl) return resetBtn(btn);
+    const apiKey=prompt('API Key（可留空，稍后在工作台填）：','');
+    body.baseUrl=baseUrl; body.apiKey=apiKey||undefined;
+  }
+  try{
+    const r=await fetch('/admin/deploy',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)});
+    const d=await r.json();
+    renderSteps(el, d);
+    btn.textContent=d.ok?'已部署 ✓':'部署失败';
+    btn.style.background=d.ok?'':'#ff9c8f22'; btn.style.color=d.ok?'':'#ff9c8f';
+  }catch(e){ btn.textContent='部署失败'; }
+  finally{ btn.disabled=false; }
+}
+
+function resetBtn(btn){ btn.disabled=false; btn.textContent=btn.classList.contains('cloud')?'配置云端':'一键部署'; }
+
+function renderSteps(el, d){
+  let steps=el.querySelector('.steps');
+  if(!steps){ steps=document.createElement('div'); steps.className='steps'; el.append(steps); }
+  steps.innerHTML=(d.steps||[]).map(s=>`<div class="step ${s.ok?'ok':'fail'}"><span class="dot"></span><span class="lbl">${s.label}</span><span class="det">${s.detail||''}</span></div>`).join('');
+  if(d.error) steps.innerHTML+=`<div class="step fail"><span class="dot"></span><span class="det">${d.error}</span></div>`;
+  steps.classList.add('show');
+}
+
+// 用途切换
+$('usecase').querySelectorAll('button').forEach(b=>{
+  b.onclick=()=>{
+    $('usecase').querySelectorAll('button').forEach(x=>x.classList.remove('active'));
+    b.classList.add('active'); currentUseCase=b.dataset.v;
+    if(machine) loadRecs();
+  };
+});
+// 偏好切换
+$('prefer').querySelectorAll('input').forEach(i=>{
+  i.onchange=()=>{ if(machine) loadRecs(); };
+});
+</script>
+</body></html>
