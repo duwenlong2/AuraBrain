@@ -12,6 +12,16 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { registerApiRoute } from '@mastra/core/server'
 import { defaultMcpServers, loadConfig, saveConfig, type AuraBrainConfig } from './lib/config-store.ts'
+import {
+  completeNativeCommand,
+  enqueueNativeCommand,
+  getNativeDevice,
+  isNativeDeviceOnline,
+  listNativeDevices,
+  registerNativeDevice,
+  touchNativeDevice,
+  waitForNativeCommand,
+} from './lib/native-device-registry.ts'
 import { getSecret, setSecret } from './lib/secret-store.ts'
 import {
   startDeviceCode,
@@ -358,6 +368,75 @@ export const apiRoutes = [
         defaultModel: config.models?.default || null,
         providers: providerStatus,
       })
+    },
+  }),
+
+  registerApiRoute('/admin/native-devices', {
+    method: 'GET',
+    handler: async c => {
+      const devices = listNativeDevices().map(device => ({ ...device, online: isNativeDeviceOnline(device) }))
+      return c.json({ ok: true, devices })
+    },
+  }),
+
+  registerApiRoute('/v1/native-devices/register', {
+    method: 'POST',
+    handler: async c => {
+      const body = await c.req.json().catch(() => ({})) as { id?: string; name?: string; mac?: string; firmware?: string }
+      if (!body.id?.trim()) return c.json({ ok: false, error: '缺少设备 ID' }, 400)
+      const device = registerNativeDevice({ id: body.id.trim(), name: body.name?.trim(), mac: body.mac, firmware: body.firmware })
+      return c.json({ ok: true, device, runtime: { protocol: 1, heartbeatMs: 10_000, pollPath: `/v1/native-devices/${device.id}/commands` } })
+    },
+  }),
+
+  registerApiRoute('/v1/native-devices/:id/heartbeat', {
+    method: 'POST',
+    handler: async c => {
+      try {
+        const body = await c.req.json().catch(() => ({})) as { ip?: string; firmware?: string }
+        return c.json({ ok: true, device: touchNativeDevice(c.req.param('id'), body) })
+      } catch (error: any) {
+        return c.json({ ok: false, error: error?.message || String(error) }, 404)
+      }
+    },
+  }),
+
+  registerApiRoute('/v1/native-devices/:id/commands', {
+    method: 'GET',
+    handler: async c => {
+      try {
+        const command = await waitForNativeCommand(c.req.param('id'), Math.min(Number(c.req.query('waitMs') || 25_000), 25_000))
+        return command ? c.json({ ok: true, command: { id: command.id, command: command.command, params: command.params } }) : c.body(null, 204)
+      } catch (error: any) {
+        return c.json({ ok: false, error: error?.message || String(error) }, 404)
+      }
+    },
+  }),
+
+  registerApiRoute('/v1/native-devices/:id/commands/:commandId/result', {
+    method: 'POST',
+    handler: async c => {
+      try {
+        const body = await c.req.json().catch(() => ({}))
+        const accepted = completeNativeCommand(c.req.param('id'), c.req.param('commandId'), body)
+        return c.json({ ok: accepted }, accepted ? 200 : 404)
+      } catch (error: any) {
+        return c.json({ ok: false, error: error?.message || String(error) }, 404)
+      }
+    },
+  }),
+
+  registerApiRoute('/admin/native-devices/:id/command', {
+    method: 'POST',
+    handler: async c => {
+      const device = getNativeDevice(c.req.param('id'))
+      const body = await c.req.json().catch(() => ({})) as { command?: string; params?: Record<string, unknown> }
+      if (!body.command?.trim()) return c.json({ ok: false, error: '缺少设备命令' }, 400)
+      const result = await Promise.race([
+        enqueueNativeCommand(device.id, body.command.trim(), body.params || {}),
+        new Promise(resolve => setTimeout(() => resolve({ ok: false, error: '设备未在 30 秒内取走命令' }), 30_000)),
+      ])
+      return c.json(result)
     },
   }),
 

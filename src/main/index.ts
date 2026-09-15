@@ -13,6 +13,8 @@ import { allOutlookTools } from './tools/outlook-tools.ts'
 import { apiRoutes } from './routes.ts'
 import { shutdownDefaultAgent } from './agent/default-agent.ts'
 import { disconnectAllMcp } from './mcp/registry.ts'
+import { allNativeDeviceTools } from './tools/native-device-tools.ts'
+import { startNativeRuntimeDiscovery, stopNativeRuntimeDiscovery } from './lib/native-runtime-discovery.ts'
 
 export const mastra = new Mastra({
   agents: {
@@ -23,10 +25,11 @@ export const mastra = new Mastra({
     ...allMailTools,
     ...allCalendarTools,
     ...allOutlookTools,
+    ...allNativeDeviceTools,
   },
   server: {
     port: Number(process.env.AURABRAIN_PORT || 49000),
-    host: process.env.AURABRAIN_HOST || '127.0.0.1',
+    host: process.env.AURABRAIN_HOST || '0.0.0.0',
     // 测试页需要长一点的超时（设备码登录 / IMAP 连接可能慢）
     timeout: 120_000,
     build: {
@@ -49,6 +52,7 @@ async function gracefulShutdown(signal: string): Promise<void> {
   console.log(`[AuraBrain] 收到 ${signal}，正在关闭浏览器与 MCP 连接…`)
   try {
     await Promise.allSettled([shutdownDefaultAgent(), disconnectAllMcp()])
+    stopNativeRuntimeDiscovery()
   } finally {
     setTimeout(() => process.exit(0), 300).unref()
   }

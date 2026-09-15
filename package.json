@@ -26,6 +26,7 @@
     "@mastra/agent-browser": "^0.5.2",
     "@mastra/core": "^1.63.2",
     "ai": "^7.0.94",
+    "bonjour-service": "^1.4.4",
     "@mastra/mcp": "^1.17.3",
     "imapflow": "^1.7.6",
     "keytar": "^7.9.0",
