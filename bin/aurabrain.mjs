@@ -167,6 +167,7 @@ function runMastra(mastraCommand, commandArgs) {
   })
   let heartbeat
   if (mastraCommand === 'build') {
+    mkdirSync(dirname(buildPidFile), { recursive: true })
     writeFileSync(buildPidFile, `${child.pid}\n`, 'utf8')
     logLauncher(`build-child-start pid=${child.pid}`)
     console.log(`[AuraBrain build] child pid=${child.pid}`)

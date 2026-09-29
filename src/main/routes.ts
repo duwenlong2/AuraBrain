@@ -32,12 +32,6 @@ import {
   graphClientId,
 } from './lib/graph.ts'
 import {
-  clearImapOAuthToken,
-  getImapOAuthStatus,
-  pollImapDeviceCode,
-  startImapDeviceCode,
-} from './lib/outlook-imap-oauth.ts'
-import {
   graphTestTool,
   graphRecentEmailsTool,
   graphGetEmailTool,
@@ -84,10 +78,6 @@ import {
   retryMcpServer,
 } from './mcp/registry.ts'
 import { getCapabilityFlags } from './agent/default-agent.ts'
-import { loadCapabilityManifest } from './lib/capability-manifest.ts'
-import { analyzeDebugMail, loadDebugMailContent, loadDebugMailThread, sendDebugMailChat, taskDebugSnapshot } from './lib/task-debug.ts'
-import { getOutlookPolicyStatus, requestOutlookPolicyElevation } from './lib/outlook-policy.ts'
-import { exportReviewHistory, updateReviewNoteStatus } from './lib/mail-review-store.ts'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
@@ -99,12 +89,6 @@ const TEST_PAGE_CANDIDATES = [
   path.resolve(__dirname, 'public/test-page.html'),
 ]
 const TEST_PAGE_FILE = TEST_PAGE_CANDIDATES.find(p => fs.existsSync(p)) || TEST_PAGE_CANDIDATES[0]
-const TASK_DEBUG_PAGE_CANDIDATES = [
-  path.resolve(process.cwd(), 'src/main/public/task-review.html'),
-  path.resolve(__dirname, '../../src/main/public/task-review.html'),
-  path.resolve(__dirname, 'public/task-review.html'),
-]
-const TASK_DEBUG_PAGE_FILE = TASK_DEBUG_PAGE_CANDIDATES.find(p => fs.existsSync(p)) || TASK_DEBUG_PAGE_CANDIDATES[0]
 const SETUP_PAGE_CANDIDATES = [
   path.resolve(__dirname, 'public/setup.html'),
   path.resolve(__dirname, '../../src/main/public/setup.html'),
@@ -688,147 +672,6 @@ export const apiRoutes = [
     handler: async c => {
       const html = fs.readFileSync(TEST_PAGE_FILE, 'utf8')
       return c.html(html)
-    },
-  }),
-
-  // ---------- 本机邮件事实观察台（只读，不创建任务或记忆） ----------
-  registerApiRoute('/task-debug', {
-    method: 'GET',
-    handler: async c => c.html(fs.readFileSync(TASK_DEBUG_PAGE_FILE, 'utf8')),
-  }),
-
-  registerApiRoute('/admin/task-debug', {
-    method: 'GET',
-    handler: async c => {
-      if (!getOutlookPolicyStatus().ready) return c.json({ ok: false, error: 'Outlook 地址信息策略尚未就绪。' }, 423)
-      return c.json({ ok: true, ...(await taskDebugSnapshot()) })
-    },
-  }),
-
-  registerApiRoute('/admin/task-debug/policy', {
-    method: 'GET',
-    handler: async c => c.json({ ok: true, policy: getOutlookPolicyStatus() }),
-  }),
-
-  registerApiRoute('/admin/task-debug/authorize-policy', {
-    method: 'POST',
-    handler: async c => {
-      const origin = c.req.header('origin')
-      const host = c.req.header('host')
-      let sameLoopbackOrigin = false
-      if (origin && host) {
-        try {
-          const parsed = new URL(origin)
-          sameLoopbackOrigin = parsed.protocol === 'http:'
-            && parsed.host === host
-            && ['127.0.0.1', 'localhost', '[::1]'].includes(parsed.hostname)
-        } catch { /* Invalid Origin is rejected below. */ }
-      }
-      if (!sameLoopbackOrigin) return c.json({ ok: false, error: '只允许从本机测试页面发起授权。' }, 403)
-
-      try {
-        await requestOutlookPolicyElevation()
-        return c.json({ ok: true })
-      } catch (error: any) {
-        return c.json({ ok: false, error: error?.message || String(error) }, 409)
-      }
-    },
-  }),
-
-  registerApiRoute('/admin/task-debug/analyze', {
-    method: 'POST',
-    handler: async c => {
-      if (!getOutlookPolicyStatus().ready) return c.json({ ok: false, error: 'Outlook 地址信息策略尚未就绪。' }, 423)
-      try {
-        const body = await c.req.json() as { entryId?: string }
-        if (!body.entryId?.trim()) return c.json({ ok: false, error: '缺少邮件 ID' }, 400)
-        return c.json({ ok: true, analysis: await analyzeDebugMail(body.entryId.trim()) })
-      } catch (error: any) {
-        const message = error?.name === 'AbortError'
-          ? '默认模型在 120 秒内没有返回。请检查模型服务后重试。'
-          : error?.message || String(error)
-        return c.json({ ok: false, error: message }, error?.name === 'AbortError' ? 504 : 502)
-      }
-    },
-  }),
-
-  registerApiRoute('/admin/task-debug/thread', {
-    method: 'GET',
-    handler: async c => {
-      const entryId = c.req.query('entryId')?.trim()
-      if (!entryId) return c.json({ ok: false, error: '缺少邮件 ID' }, 400)
-      try {
-        return c.json({ ok: true, thread: await loadDebugMailThread(entryId, c.req.query('touch') !== 'false') })
-      } catch (error: any) {
-        return c.json({ ok: false, error: error?.message || String(error) }, 404)
-      }
-    },
-  }),
-
-  registerApiRoute('/admin/task-debug/content', {
-    method: 'GET',
-    handler: async c => {
-      const entryId = c.req.query('entryId')?.trim()
-      if (!entryId) return c.json({ ok: false, error: '缺少邮件 ID' }, 400)
-      try {
-        return c.json({ ok: true, content: await loadDebugMailContent(entryId) })
-      } catch (error: any) {
-        return c.json({ ok: false, error: error?.message || String(error) }, 502)
-      }
-    },
-  }),
-
-  registerApiRoute('/admin/task-debug/chat', {
-    method: 'POST',
-    handler: async c => {
-      if (!getOutlookPolicyStatus().ready) return c.json({ ok: false, error: 'Outlook 地址信息策略尚未就绪。' }, 423)
-      try {
-        const body = await c.req.json() as { entryId?: string; message?: string }
-        const entryId = body.entryId?.trim()
-        const message = body.message?.trim()
-        if (!entryId || !message) return c.json({ ok: false, error: '邮件 ID 和消息内容不能为空' }, 400)
-        if (message.length > 4000) return c.json({ ok: false, error: '单条消息不能超过 4000 字符' }, 413)
-        return c.json({ ok: true, ...(await sendDebugMailChat(entryId, message)) })
-      } catch (error: any) {
-        const message = error?.name === 'AbortError'
-          ? '默认模型在 120 秒内没有返回。请检查模型服务后重试。'
-          : error?.message || String(error)
-        return c.json({ ok: false, error: message }, error?.name === 'AbortError' ? 504 : 502)
-      }
-    },
-  }),
-
-  registerApiRoute('/admin/task-debug/note-status', {
-    method: 'POST',
-    handler: async c => {
-      try {
-        const body = await c.req.json() as { noteId?: number; status?: string }
-        if (!Number.isInteger(body.noteId) || !['candidate', 'kept', 'dismissed'].includes(body.status || '')) {
-          return c.json({ ok: false, error: '便签 ID 或状态无效' }, 400)
-        }
-        const result = await updateReviewNoteStatus(body.noteId!, body.status as 'candidate' | 'kept' | 'dismissed')
-        if (!result) return c.json({ ok: false, error: '找不到这条便签' }, 404)
-        return c.json({ ok: true, ...result })
-      } catch (error: any) {
-        return c.json({ ok: false, error: error?.message || String(error) }, 500)
-      }
-    },
-  }),
-
-  registerApiRoute('/admin/task-debug/export', {
-    method: 'GET',
-    handler: async c => c.json({ ok: true, ...(await exportReviewHistory()) }),
-  }),
-
-  registerApiRoute('/admin/task-debug/log', {
-    method: 'GET',
-    handler: async c => {
-      const file = path.resolve(process.cwd(), '.aurabrain', 'mail-observation.jsonl')
-      if (!fs.existsSync(file)) return c.json({ ok: true, entries: [] })
-      const entries = fs.readFileSync(file, 'utf8').trimEnd().split(/\r?\n/).slice(-50).flatMap(line => {
-        try { return [JSON.parse(line)] } catch { return [] }
-      })
-      return c.json({ ok: true, entries })
     },
   }),
 
