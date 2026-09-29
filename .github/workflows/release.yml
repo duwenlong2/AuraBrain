@@ -7,6 +7,10 @@ on:
         description: Existing Git tag and Release to update
         required: true
         default: 0.0.0.1
+      source_ref:
+        description: Git ref to build
+        required: true
+        default: main
 
 permissions:
   contents: write
@@ -31,7 +35,7 @@ jobs:
       - name: Checkout release tag
         uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.tag }}
+          ref: ${{ inputs.source_ref }}
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
