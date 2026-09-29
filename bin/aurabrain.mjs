@@ -62,6 +62,7 @@ Commands:
   brain logs                    Show the last 50 lines of the Runtime log
   brain health                  Check Runtime health
   brain status                  Check health and initialization status
+  brain metrics                 Show Runtime memory and CPU metrics
   brain init                    Open the first-time model setup page
   brain settings                Open the Runtime settings page
   brain chat                    Start an interactive text chat
@@ -399,6 +400,25 @@ async function checkStatus() {
   }
 }
 
+async function checkMetrics() {
+  try {
+    const response = await fetch(`${baseUrl}/admin/runtime/status`)
+    const metrics = await response.json()
+    if (!response.ok || !metrics.ok) throw new Error(metrics.error || `HTTP ${response.status}`)
+    const mb = bytes => `${(bytes / 1024 / 1024).toFixed(1)} MB`
+    console.log(`Runtime: running (PID ${metrics.pid})`)
+    console.log(`Uptime: ${metrics.uptimeSeconds}s`)
+    console.log(`RSS: ${mb(metrics.memory.rssBytes)}`)
+    console.log(`Heap: ${mb(metrics.memory.heapUsedBytes)} / ${mb(metrics.memory.heapTotalBytes)}`)
+    console.log(`External: ${mb(metrics.memory.externalBytes)}`)
+    console.log(`CPU time: user=${metrics.cpu.userMicros}us system=${metrics.cpu.systemMicros}us`)
+    console.log(`Listen: http://${metrics.host}:${metrics.port}`)
+  } catch (error) {
+    console.error(`AuraBrain Runtime metrics unavailable: ${error instanceof Error ? error.message : error}`)
+    process.exitCode = 1
+  }
+}
+
 function openBrowser(path) {
   const url = `${baseUrl}${path}`
   if (process.platform === 'win32') {
@@ -556,6 +576,9 @@ try {
       break
     case 'status':
       await checkStatus()
+      break
+    case 'metrics':
+      await checkMetrics()
       break
     case 'init':
     case 'settings':

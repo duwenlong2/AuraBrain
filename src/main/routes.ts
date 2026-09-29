@@ -452,6 +452,34 @@ export const apiRoutes = [
     },
   }),
 
+  registerApiRoute('/admin/runtime/status', {
+    method: 'GET',
+    handler: async c => {
+      const memory = process.memoryUsage()
+      const cpu = process.cpuUsage()
+      return c.json({
+        ok: true,
+        pid: process.pid,
+        uptimeSeconds: Math.round(process.uptime()),
+        platform: process.platform,
+        arch: process.arch,
+        memory: {
+          rssBytes: memory.rss,
+          heapUsedBytes: memory.heapUsed,
+          heapTotalBytes: memory.heapTotal,
+          externalBytes: memory.external,
+          arrayBuffersBytes: memory.arrayBuffers,
+        },
+        cpu: {
+          userMicros: cpu.user,
+          systemMicros: cpu.system,
+        },
+        host: process.env.AURABRAIN_HOST || '127.0.0.1',
+        port: Number(process.env.AURABRAIN_PORT || 49000),
+      })
+    },
+  }),
+
   registerApiRoute('/admin/native-devices', {
     method: 'GET',
     handler: async c => {

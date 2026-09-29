@@ -1,0 +1,15 @@
+D:\Codes\Lenovo\workspace\AuraBrain\native\AuraBrain.Tray\bin\x64\Release\net8.0-windows\AuraBrain.Tray.exe
+D:\Codes\Lenovo\workspace\AuraBrain\native\AuraBrain.Tray\bin\x64\Release\net8.0-windows\AuraBrain.Tray.deps.json
+D:\Codes\Lenovo\workspace\AuraBrain\native\AuraBrain.Tray\bin\x64\Release\net8.0-windows\AuraBrain.Tray.runtimeconfig.json
+D:\Codes\Lenovo\workspace\AuraBrain\native\AuraBrain.Tray\bin\x64\Release\net8.0-windows\AuraBrain.Tray.dll
+D:\Codes\Lenovo\workspace\AuraBrain\native\AuraBrain.Tray\bin\x64\Release\net8.0-windows\AuraBrain.Tray.pdb
+D:\Codes\Lenovo\workspace\AuraBrain\native\AuraBrain.Tray\obj\x64\Release\net8.0-windows\AuraBrain.Tray.GeneratedMSBuildEditorConfig.editorconfig
+D:\Codes\Lenovo\workspace\AuraBrain\native\AuraBrain.Tray\obj\x64\Release\net8.0-windows\AuraBrain.Tray.AssemblyInfoInputs.cache
+D:\Codes\Lenovo\workspace\AuraBrain\native\AuraBrain.Tray\obj\x64\Release\net8.0-windows\AuraBrain.Tray.AssemblyInfo.cs
+D:\Codes\Lenovo\workspace\AuraBrain\native\AuraBrain.Tray\obj\x64\Release\net8.0-windows\AuraBrain.Tray.csproj.CoreCompileInputs.cache
+D:\Codes\Lenovo\workspace\AuraBrain\native\AuraBrain.Tray\obj\x64\Release\net8.0-windows\AuraBrain.Tray.sourcelink.json
+D:\Codes\Lenovo\workspace\AuraBrain\native\AuraBrain.Tray\obj\x64\Release\net8.0-windows\AuraBrain.Tray.dll
+D:\Codes\Lenovo\workspace\AuraBrain\native\AuraBrain.Tray\obj\x64\Release\net8.0-windows\refint\AuraBrain.Tray.dll
+D:\Codes\Lenovo\workspace\AuraBrain\native\AuraBrain.Tray\obj\x64\Release\net8.0-windows\AuraBrain.Tray.pdb
+D:\Codes\Lenovo\workspace\AuraBrain\native\AuraBrain.Tray\obj\x64\Release\net8.0-windows\AuraBrain.Tray.genruntimeconfig.cache
+D:\Codes\Lenovo\workspace\AuraBrain\native\AuraBrain.Tray\obj\x64\Release\net8.0-windows\ref\AuraBrain.Tray.dll

@@ -25,7 +25,7 @@ jobs:
         include:
           - os: windows-latest
             package_name: AuraBrain-windows-x64
-            archive: AuraBrain-windows-x64.zip
+            archive: AuraBrain-windows-x64-full.zip
           - os: ubuntu-latest
             package_name: AuraBrain-linux-x64
             archive: AuraBrain-linux-x64.tar.gz
@@ -69,10 +69,18 @@ jobs:
         run: |
           $stage = Join-Path $env:RUNNER_TEMP '${{ matrix.package_name }}'
           New-Item -ItemType Directory -Path $stage -Force | Out-Null
-          Copy-Item bin,README.md,LICENSE,package.json -Destination $stage -Recurse -Force
+          Copy-Item bin,README.md,LICENSE,package.json,package-lock.json -Destination $stage -Recurse -Force
           New-Item -ItemType Directory -Path (Join-Path $stage '.mastra') -Force | Out-Null
           Copy-Item .mastra/output -Destination (Join-Path $stage '.mastra') -Recurse -Force
           Compress-Archive -Path (Join-Path $stage '*') -DestinationPath '${{ matrix.archive }}' -Force
+          $installer = Join-Path $env:RUNNER_TEMP 'AuraBrain-windows-x64-installer'
+          New-Item -ItemType Directory -Path $installer -Force | Out-Null
+          Copy-Item bin,README.md,LICENSE,package.json,package-lock.json,scripts/install-windows.ps1 -Destination $installer -Recurse -Force
+          New-Item -ItemType Directory -Path (Join-Path $installer '.mastra') -Force | Out-Null
+          Copy-Item .mastra/output -Destination (Join-Path $installer '.mastra') -Recurse -Force
+          Remove-Item (Join-Path $installer '.mastra\output\node_modules') -Recurse -Force -ErrorAction SilentlyContinue
+          dotnet publish native/AuraBrain.Tray/AuraBrain.Tray.csproj -c Release -r win-x64 --self-contained false -p:Platform=x64 -o (Join-Path $installer 'native')
+          Compress-Archive -Path (Join-Path $installer '*') -DestinationPath 'AuraBrain-windows-x64-installer.zip' -Force
 
       - name: Package Linux Runtime
         if: runner.os == 'Linux'
@@ -88,7 +96,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.package_name }}
-          path: ${{ matrix.archive }}
+          path: |
+            ${{ matrix.archive }}
+            AuraBrain-windows-x64-installer.zip
           if-no-files-found: error
 
   publish:
