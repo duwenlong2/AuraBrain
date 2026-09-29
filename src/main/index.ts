@@ -15,21 +15,20 @@ import { shutdownDefaultAgent } from './agent/default-agent.ts'
 import { disconnectAllMcp } from './mcp/registry.ts'
 import { allNativeDeviceTools } from './tools/native-device-tools.ts'
 import { startNativeRuntimeDiscovery, stopNativeRuntimeDiscovery } from './lib/native-runtime-discovery.ts'
-
 export const mastra = new Mastra({
   agents: {
     runtimeAgent,
   },
   // 全局注册 tools：既供 Agent 挂载，也供 /test-api/run 直调
   tools: {
-    ...allMailTools,
-    ...allCalendarTools,
-    ...allOutlookTools,
+  ...(process.platform === 'win32' ? allMailTools : {}),
+  ...(process.platform === 'win32' ? allCalendarTools : {}),
+  ...(process.platform === 'win32' ? allOutlookTools : {}),
     ...allNativeDeviceTools,
   },
   server: {
     port: Number(process.env.AURABRAIN_PORT || 49000),
-    host: process.env.AURABRAIN_HOST || '0.0.0.0',
+    host: process.env.AURABRAIN_HOST || '127.0.0.1',
     // 测试页需要长一点的超时（设备码登录 / IMAP 连接可能慢）
     timeout: 120_000,
     build: {
@@ -59,3 +58,5 @@ async function gracefulShutdown(signal: string): Promise<void> {
 }
 process.on('SIGINT', () => void gracefulShutdown('SIGINT'))
 process.on('SIGTERM', () => void gracefulShutdown('SIGTERM'))
+
+startNativeRuntimeDiscovery(Number(process.env.AURABRAIN_PORT || 49000))

@@ -404,7 +404,12 @@ function openBrowser(path) {
   } else if (process.platform === 'darwin') {
     execFileSync('open', [url], { stdio: 'ignore' })
   } else {
-    execFileSync('xdg-open', [url], { stdio: 'ignore' })
+    try {
+      execFileSync('xdg-open', [url], { stdio: 'ignore' })
+    } catch {
+      console.log(`未检测到图形桌面，未自动打开浏览器。请手动访问：${url}`)
+      return
+    }
   }
   console.log(`已打开 ${url}`)
 }

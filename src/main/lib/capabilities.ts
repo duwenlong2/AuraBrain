@@ -35,11 +35,22 @@ export function saveCapabilitySettings(settings: CapabilitySettings): void {
   const current = loadConfig()
   saveConfig({
     ...current,
-    capabilities: settings,
+    capabilities: {
+      mail: {
+        enabled: settings.mail.enabled,
+        dataMode: settings.mail.dataMode,
+      },
+      calendar: {
+        enabled: settings.calendar.enabled,
+        dataMode: settings.calendar.dataMode,
+      },
+    },
   })
 }
 
-export async function readCapabilityMail(limit = 8): Promise<CapabilityEnvelope<OutlookEmailItem[]>> {
+export async function readCapabilityMail(limit = 50): Promise<CapabilityEnvelope<OutlookEmailItem[]>> {
+  if (process.platform !== 'win32') return envelope([], false, 'real', 'outlook-local', '当前平台未提供 Windows 邮件能力')
+  if (process.platform !== 'win32') return envelope([], false, 'real', 'outlook-local', '当前平台未提供 Windows 邮件能力')
   const settings = loadCapabilitySettings().mail
   if (!settings.enabled) return envelope([], false, settings.dataMode, 'demo')
   if (settings.dataMode === 'demo') return envelope(demoEmails(), true, 'demo', 'demo')
@@ -52,6 +63,8 @@ export async function readCapabilityMail(limit = 8): Promise<CapabilityEnvelope<
 }
 
 export async function readCapabilityCalendar(days = 14): Promise<CapabilityEnvelope<OutlookEventItem[]>> {
+  if (process.platform !== 'win32') return envelope([], false, 'real', 'outlook-local', '当前平台未提供 Windows 日程能力')
+  if (process.platform !== 'win32') return envelope([], false, 'real', 'outlook-local', '当前平台未提供 Windows 日程能力')
   const settings = loadCapabilitySettings().calendar
   if (!settings.enabled) return envelope([], false, settings.dataMode, 'demo')
   if (settings.dataMode === 'demo') return envelope(demoEvents(), true, 'demo', 'demo')
