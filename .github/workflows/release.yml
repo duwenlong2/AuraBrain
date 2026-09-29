@@ -53,6 +53,16 @@ jobs:
         working-directory: .mastra/output
         run: npm install --omit=dev --ignore-scripts --no-audit --no-fund
 
+      - name: Prepare packaged public pages
+        shell: bash
+        run: |
+          mkdir -p .mastra/output/public
+          cp .mastra/output/setup.html .mastra/output/public/setup.html
+          cp .mastra/output/models.html .mastra/output/public/models.html
+          cp .mastra/output/capabilities.html .mastra/output/public/capabilities.html
+          cp .mastra/output/task.html .mastra/output/public/task.html
+          cp .mastra/output/test-page.html .mastra/output/public/test-page.html
+
       - name: Package Windows Runtime
         if: runner.os == 'Windows'
         shell: pwsh
