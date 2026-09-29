@@ -142,10 +142,11 @@ function runMastra(mastraCommand, commandArgs) {
   if (mastraCommand === 'build') prepareBuildOutput()
   const mastraEntry = resolve(projectRoot, 'node_modules/mastra/dist/index.js')
   const startedAt = Date.now()
+  const useGeneratedDependencies = process.env.AURABRAIN_BUILD_INSTALL === 'true'
   const buildEnv = mastraCommand === 'build'
     ? {
         ...process.env,
-        ...(process.platform === 'win32' ? { PATH: `${buildToolsDir}${process.env.PATH ? `;${process.env.PATH}` : ''}` } : {}),
+        ...(!useGeneratedDependencies && process.platform === 'win32' ? { PATH: `${buildToolsDir}${process.env.PATH ? `;${process.env.PATH}` : ''}` } : {}),
         npm_config_audit: 'false',
         npm_config_fund: 'false',
         npm_config_update_notifier: 'false',
@@ -155,7 +156,7 @@ function runMastra(mastraCommand, commandArgs) {
       }
     : process.env
   if (mastraCommand === 'build') {
-    logLauncher(`build-start command=mastra ${mastraCommand} ${commandArgs.join(' ')} npm=build-shim,skip-output-install ${buildOutputSnapshot()}`)
+    logLauncher(`build-start command=mastra ${mastraCommand} ${commandArgs.join(' ')} npm=${useGeneratedDependencies ? 'install-generated-dependencies' : 'build-shim,skip-output-install'} ${buildOutputSnapshot()}`)
     console.log(`[AuraBrain build] started pid=pending ${buildOutputSnapshot()}`)
   }
   const child = spawn(process.execPath, [mastraEntry, mastraCommand, ...commandArgs], {

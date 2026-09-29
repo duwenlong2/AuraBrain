@@ -1,0 +1,95 @@
+name: Release AuraBrain
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing Git tag and Release to update
+        required: true
+        default: 0.0.0.1
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            package_name: AuraBrain-windows-x64
+            archive: AuraBrain-windows-x64.zip
+          - os: ubuntu-latest
+            package_name: AuraBrain-linux-x64
+            archive: AuraBrain-linux-x64.tar.gz
+    env:
+      AURABRAIN_BUILD_INSTALL: 'true'
+    steps:
+      - name: Checkout release tag
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag }}
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 25.x
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci --ignore-scripts --no-audit --no-fund
+
+      - name: Build Runtime
+        run: npm run build
+
+      - name: Install runtime dependencies in generated output
+        working-directory: .mastra/output
+        run: npm install --omit=dev --ignore-scripts --no-audit --no-fund
+
+      - name: Package Windows Runtime
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $stage = Join-Path $env:RUNNER_TEMP '${{ matrix.package_name }}'
+          New-Item -ItemType Directory -Path $stage -Force | Out-Null
+          Copy-Item bin,README.md,LICENSE,package.json -Destination $stage -Recurse -Force
+          New-Item -ItemType Directory -Path (Join-Path $stage '.mastra') -Force | Out-Null
+          Copy-Item .mastra/output -Destination (Join-Path $stage '.mastra') -Recurse -Force
+          Compress-Archive -Path (Join-Path $stage '*') -DestinationPath '${{ matrix.archive }}' -Force
+
+      - name: Package Linux Runtime
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          stage="$RUNNER_TEMP/${{ matrix.package_name }}"
+          mkdir -p "$stage/.mastra"
+          cp -R bin README.md LICENSE package.json "$stage/"
+          cp -R .mastra/output "$stage/.mastra/"
+          tar -czf '${{ matrix.archive }}' -C "$RUNNER_TEMP" '${{ matrix.package_name }}'
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.package_name }}
+          path: ${{ matrix.archive }}
+          if-no-files-found: error
+
+  publish:
+    name: Upload Release Assets
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download packaged runtimes
+        uses: actions/download-artifact@v4
+        with:
+          path: release-assets
+          merge-multiple: true
+
+      - name: Upload assets to GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ inputs.tag }}
+        run: gh release upload "$TAG" release-assets/* --repo "$GITHUB_REPOSITORY" --clobber
