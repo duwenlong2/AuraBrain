@@ -28,7 +28,7 @@ jobs:
             archive: AuraBrain-windows-x64-full.zip
           - os: ubuntu-latest
             package_name: AuraBrain-linux-x64
-            archive: AuraBrain-linux-x64.tar.gz
+            archive: AuraBrain-linux-x64-full.tar.gz
     env:
       AURABRAIN_BUILD_INSTALL: 'true'
     steps:
