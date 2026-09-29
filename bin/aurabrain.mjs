@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import { execFileSync, spawn } from 'node:child_process'
-import { closeSync, existsSync, mkdirSync, openSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs'
+import { closeSync, existsSync, mkdirSync, openSync, readFileSync, readdirSync, rmSync, statSync, unlinkSync, writeFileSync } from 'node:fs'
 import readline from 'node:readline/promises'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -14,10 +14,42 @@ const host = process.env.AURABRAIN_HOST || '127.0.0.1'
 const port = Number(process.env.AURABRAIN_PORT || 49000)
 const baseUrl = `http://${host}:${port}`
 const pidFile = resolve(projectRoot, '.aurabrain-runtime.pid')
+const buildPidFile = resolve(projectRoot, '.mastra', 'build.pid')
+const buildOutputDir = resolve(projectRoot, '.mastra', 'output')
+const buildToolsDir = resolve(projectRoot, 'scripts', 'build-tools')
 const devLockFile = resolve(projectRoot, '.mastra', 'dev.lock')
 const logDir = resolve(projectRoot, '.aurabrain')
 const logFile = resolve(logDir, 'runtime.log')
+const launcherLogFile = resolve(logDir, 'launcher.log')
 const runtimeEntry = resolve(projectRoot, '.mastra', 'output', 'index.mjs')
+
+function logLauncher(message) {
+  if (!existsSync(logDir)) mkdirSync(logDir, { recursive: true })
+  writeFileSync(launcherLogFile, `${new Date().toISOString()} pid=${process.pid} ppid=${process.ppid} ${message}\n`, { flag: 'a' })
+}
+
+function buildOutputSnapshot() {
+  const dependenciesDir = resolve(buildOutputDir, 'node_modules')
+  if (!existsSync(dependenciesDir)) return 'generated-node_modules=missing'
+  let files = 0
+  let bytes = 0
+  const pending = [dependenciesDir]
+  while (pending.length) {
+    const current = pending.pop()
+    let entries
+    try { entries = readdirSync(current, { withFileTypes: true }) } catch { continue }
+    for (const entry of entries) {
+      const fullPath = resolve(current, entry.name)
+      if (entry.isDirectory()) pending.push(fullPath)
+      else {
+        files += 1
+        try { bytes += statSync(fullPath).size } catch {}
+      }
+    }
+  }
+  const packages = readdirSync(dependenciesDir, { withFileTypes: true }).filter(entry => entry.isDirectory()).length
+  return `generated-node_modules=present packages=${packages} files=${files} bytes=${bytes}`
+}
 
 function printHelp() {
   console.log(`AuraBrain CLI (brain)
@@ -39,25 +71,139 @@ Alias: aurabrain
 `)
 }
 
+function stopProcessTree(pid) {
+  if (!Number.isInteger(pid) || pid <= 0) return
+  try {
+    if (process.platform === 'win32') {
+      execFileSync('taskkill.exe', ['/PID', String(pid), '/T', '/F'], { stdio: 'ignore' })
+    } else {
+      process.kill(pid, 'SIGTERM')
+    }
+  } catch {
+    // The process may already have exited after an interrupted build.
+  }
+}
+
+function findOrphanedBuildPids() {
+  if (process.platform !== 'win32') return []
+
+  try {
+    const script = [
+      '$root = $env:AURABRAIN_PROJECT_ROOT',
+      '$current = [int]$env:AURABRAIN_CLI_PID',
+      'Get-CimInstance Win32_Process |',
+      "  Where-Object { $_.ProcessId -ne $PID -and $_.ProcessId -ne $current -and $_.CommandLine -and (( $_.CommandLine.Contains($root) -and $_.CommandLine -match 'mastra[\\\\/].*dist[\\\\/]index\\.js' -and $_.CommandLine -match '(?:^|\\s)build(?:\\s|$)' ) -or $_.CommandLine -match 'aurabrain\\.mjs[\\s\"'']+build(?:\\s|$)' ) } |",
+      '  Select-Object -ExpandProperty ProcessId',
+    ].join('; ')
+    const output = execFileSync('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', script], {
+      encoding: 'utf8',
+      env: { ...process.env, AURABRAIN_PROJECT_ROOT: projectRoot, AURABRAIN_CLI_PID: String(process.pid) },
+      stdio: ['ignore', 'pipe', 'ignore'],
+    })
+    return output.split(/\r?\n/).map(value => Number.parseInt(value.trim(), 10)).filter(Number.isInteger)
+  } catch {
+    return []
+  }
+}
+
+function waitForFileRelease(milliseconds) {
+  if (milliseconds <= 0) return
+  const signal = new Int32Array(new SharedArrayBuffer(4))
+  Atomics.wait(signal, 0, 0, milliseconds)
+}
+
+function prepareBuildOutput() {
+  const orphanedPids = findOrphanedBuildPids()
+  const hasStaleBuildPid = existsSync(buildPidFile)
+  if (!hasStaleBuildPid && orphanedPids.length === 0) return
+
+  if (existsSync(buildPidFile)) {
+    const pid = Number.parseInt(readFileSync(buildPidFile, 'utf8').trim(), 10)
+    stopProcessTree(pid)
+    unlinkSync(buildPidFile)
+  }
+
+  let lastError
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    for (const pid of orphanedPids) stopProcessTree(pid)
+    try {
+      rmSync(buildOutputDir, { recursive: true, force: true, maxRetries: 3, retryDelay: 250 })
+      return
+    } catch (error) {
+      lastError = error
+      waitForFileRelease(500)
+    }
+  }
+
+  throw new Error(`无法清理上次构建产物 ${buildOutputDir}，请确认没有其他 brain build 进程正在运行：${lastError?.message || lastError}`)
+}
+
 function runMastra(mastraCommand, commandArgs) {
+  if (mastraCommand === 'build') prepareBuildOutput()
   const mastraEntry = resolve(projectRoot, 'node_modules/mastra/dist/index.js')
+  const startedAt = Date.now()
+  const buildEnv = mastraCommand === 'build'
+    ? {
+        ...process.env,
+        ...(process.platform === 'win32' ? { PATH: `${buildToolsDir}${process.env.PATH ? `;${process.env.PATH}` : ''}` } : {}),
+        npm_config_audit: 'false',
+        npm_config_fund: 'false',
+        npm_config_update_notifier: 'false',
+        npm_config_progress: 'false',
+        npm_config_prefer_offline: 'true',
+        npm_config_fetch_retries: process.env.npm_config_fetch_retries || '1',
+      }
+    : process.env
+  if (mastraCommand === 'build') {
+    logLauncher(`build-start command=mastra ${mastraCommand} ${commandArgs.join(' ')} npm=build-shim,skip-output-install ${buildOutputSnapshot()}`)
+    console.log(`[AuraBrain build] started pid=pending ${buildOutputSnapshot()}`)
+  }
   const child = spawn(process.execPath, [mastraEntry, mastraCommand, ...commandArgs], {
     cwd: projectRoot,
     stdio: 'inherit',
     shell: false,
+    env: buildEnv,
   })
-  writeFileSync(pidFile, `${child.pid}\n`, 'utf8')
+  let heartbeat
+  if (mastraCommand === 'build') {
+    writeFileSync(buildPidFile, `${child.pid}\n`, 'utf8')
+    logLauncher(`build-child-start pid=${child.pid}`)
+    console.log(`[AuraBrain build] child pid=${child.pid}`)
+    heartbeat = setInterval(() => {
+      const elapsedSeconds = Math.round((Date.now() - startedAt) / 1000)
+      const snapshot = buildOutputSnapshot()
+      logLauncher(`build-heartbeat elapsed=${elapsedSeconds}s ${snapshot}`)
+      console.log(`[AuraBrain build] ${elapsedSeconds}s ${snapshot}`)
+    }, 15_000)
+  }
   child.on('exit', (code, signal) => {
-    if (existsSync(pidFile) && readFileSync(pidFile, 'utf8').trim() === String(child.pid)) {
-      unlinkSync(pidFile)
+    if (heartbeat) clearInterval(heartbeat)
+    if (mastraCommand === 'build') {
+      const elapsedSeconds = Math.round((Date.now() - startedAt) / 1000)
+      logLauncher(`build-exit pid=${child.pid} code=${code ?? 'null'} signal=${signal ?? 'null'} elapsed=${elapsedSeconds}s ${buildOutputSnapshot()}`)
+      console.log(`[AuraBrain build] exit code=${code ?? 'null'} signal=${signal ?? 'null'} elapsed=${elapsedSeconds}s ${buildOutputSnapshot()}`)
+    }
+    const currentPidFile = mastraCommand === 'build' ? buildPidFile : pidFile
+    if (existsSync(currentPidFile) && readFileSync(currentPidFile, 'utf8').trim() === String(child.pid)) {
+      unlinkSync(currentPidFile)
     }
     process.exitCode = signal ? 1 : (code ?? 1)
   })
+  if (mastraCommand === 'build') {
+    const forwardInterrupt = () => stopProcessTree(child.pid)
+    process.once('SIGINT', forwardInterrupt)
+    process.once('SIGTERM', forwardInterrupt)
+    child.once('exit', () => {
+      process.removeListener('SIGINT', forwardInterrupt)
+      process.removeListener('SIGTERM', forwardInterrupt)
+    })
+  }
 }
 
 function spawnRuntime() {
   if (!existsSync(logDir)) mkdirSync(logDir, { recursive: true })
   const logStream = openSync(logFile, 'a')
+  logLauncher(`spawn runtime executable=${process.execPath} entry=${runtimeEntry} cwd=${projectRoot}`)
   const child = spawn(process.execPath, [runtimeEntry], {
     cwd: projectRoot,
     detached: true,
@@ -66,6 +212,8 @@ function spawnRuntime() {
     windowsHide: true,
   })
   closeSync(logStream)
+  logLauncher(`runtime child started pid=${child.pid} detached=true shell=false windowsHide=true`)
+  child.once('exit', (code, signal) => logLauncher(`runtime child exited pid=${child.pid} code=${code ?? '<null>'} signal=${signal ?? '<null>'}`))
   writeFileSync(pidFile, `${child.pid}\n`, 'utf8')
   child.unref()
   return child

@@ -1,6 +1,6 @@
 {
   "name": "aurabrain-runtime",
-  "version": "0.1.0",
+  "version": "0.0.1",
   "description": "AuraBrain Runtime: a local AI runtime built on Mastra.",
   "private": true,
   "type": "module",
@@ -23,11 +23,11 @@
   },
   "dependencies": {
     "@hono/node-ws": "^1.3.1",
-    "@mastra/agent-browser": "^0.5.2",
-    "@mastra/core": "^1.63.2",
+    "@libsql/client": "^0.18.0",
+    "@mastra/core": "1.63.2",
+    "@mastra/mcp": "1.16.0",
     "ai": "^7.0.94",
     "bonjour-service": "^1.4.4",
-    "@mastra/mcp": "^1.17.3",
     "imapflow": "^1.7.6",
     "keytar": "^7.9.0",
     "mailparser": "^3.9.17",
@@ -36,7 +36,7 @@
   },
   "devDependencies": {
     "@types/node": "^26.4.0",
-    "mastra": "^1.27.2",
+    "mastra": "1.27.2",
     "typescript": "^7.0.2"
   }
 }

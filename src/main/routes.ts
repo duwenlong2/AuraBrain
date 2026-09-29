@@ -32,6 +32,12 @@ import {
   graphClientId,
 } from './lib/graph.ts'
 import {
+  clearImapOAuthToken,
+  getImapOAuthStatus,
+  pollImapDeviceCode,
+  startImapDeviceCode,
+} from './lib/outlook-imap-oauth.ts'
+import {
   graphTestTool,
   graphRecentEmailsTool,
   graphGetEmailTool,
@@ -78,17 +84,27 @@ import {
   retryMcpServer,
 } from './mcp/registry.ts'
 import { getCapabilityFlags } from './agent/default-agent.ts'
+import { loadCapabilityManifest } from './lib/capability-manifest.ts'
+import { analyzeDebugMail, loadDebugMailContent, loadDebugMailThread, sendDebugMailChat, taskDebugSnapshot } from './lib/task-debug.ts'
+import { getOutlookPolicyStatus, requestOutlookPolicyElevation } from './lib/outlook-policy.ts'
+import { exportReviewHistory, updateReviewNoteStatus } from './lib/mail-review-store.ts'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
 // dev 时 __dirname 指向 .mastra/output，HTML 不会被打进 bundle，
 // 所以按候选路径依次查找（生产部署时把 html 拷到 output/public 即可命中第一个）
 const TEST_PAGE_CANDIDATES = [
-  path.resolve(__dirname, 'public/test-page.html'),
-  path.resolve(__dirname, '../../src/main/public/test-page.html'),
   path.resolve(process.cwd(), 'src/main/public/test-page.html'),
+  path.resolve(__dirname, '../../src/main/public/test-page.html'),
+  path.resolve(__dirname, 'public/test-page.html'),
 ]
 const TEST_PAGE_FILE = TEST_PAGE_CANDIDATES.find(p => fs.existsSync(p)) || TEST_PAGE_CANDIDATES[0]
+const TASK_DEBUG_PAGE_CANDIDATES = [
+  path.resolve(process.cwd(), 'src/main/public/task-review.html'),
+  path.resolve(__dirname, '../../src/main/public/task-review.html'),
+  path.resolve(__dirname, 'public/task-review.html'),
+]
+const TASK_DEBUG_PAGE_FILE = TASK_DEBUG_PAGE_CANDIDATES.find(p => fs.existsSync(p)) || TASK_DEBUG_PAGE_CANDIDATES[0]
 const SETUP_PAGE_CANDIDATES = [
   path.resolve(__dirname, 'public/setup.html'),
   path.resolve(__dirname, '../../src/main/public/setup.html'),
@@ -171,6 +187,7 @@ function preparePage(html: string): string {
 
 // 设备码流程的临时状态（POC 用内存即可）
 let pendingDeviceCode: { code: string; interval: number; expiresAt: number } | null = null
+const pendingImapDeviceCodes = new Map<string, { code: string; interval: number; expiresAt: number }>()
 
 const TOOL_REGISTRY: Record<string, any> = {
   'graph-test-connection': graphTestTool,
@@ -323,6 +340,11 @@ export const apiRoutes = [
     handler: async c => c.json(loadCapabilitySettings()),
   }),
 
+  registerApiRoute('/v1/capabilities/manifest', {
+    method: 'GET',
+    handler: async c => c.json(loadCapabilityManifest()),
+  }),
+
   registerApiRoute('/v1/capabilities/settings', {
     method: 'POST',
     handler: async c => {
@@ -348,6 +370,81 @@ export const apiRoutes = [
   registerApiRoute('/v1/capabilities/calendar', {
     method: 'GET',
     handler: async c => c.json(await readCapabilityCalendar(Number(c.req.query('days') || 14))),
+  }),
+
+  registerApiRoute('/admin/imap', {
+    method: 'GET',
+    handler: async c => {
+      const profile = (c.req.query('profile') || 'gmail') as 'gmail' | 'outlook-personal' | 'outlook-enterprise'
+      const config = loadConfig()
+      const imap = config.imapProfiles?.[profile] || (profile === 'gmail' ? config.imap : {}) || {}
+      return c.json({
+        ok: true,
+        profile,
+        imap: {
+          provider: imap.provider || 'custom',
+          host: imap.host || '',
+          port: imap.port || 993,
+          tls: imap.tls ?? true,
+          mailbox: imap.mailbox || 'INBOX',
+          rejectUnauthorized: imap.rejectUnauthorized ?? true,
+          userKey: imap.userKey || '',
+          passwordKey: imap.passwordKey || '',
+          hasUser: Boolean(imap.userKey && await getSecret(imap.userKey)),
+          hasPassword: Boolean(imap.passwordKey && await getSecret(imap.passwordKey)),
+        },
+      })
+    },
+  }),
+
+  registerApiRoute('/admin/imap', {
+    method: 'POST',
+    handler: async c => {
+      try {
+        const body = await c.req.json() as {
+          profile?: 'gmail' | 'outlook-personal' | 'outlook-enterprise'
+          provider?: 'gmail' | 'outlook-personal' | 'outlook-enterprise' | 'custom'
+          host?: string
+          port?: number
+          tls?: boolean
+          mailbox?: string
+          rejectUnauthorized?: boolean
+          user?: string
+          password?: string
+          userKey?: string
+          passwordKey?: string
+        }
+        const profile = body.profile || (body.provider === 'gmail' ? 'gmail' : 'outlook-enterprise')
+        const provider = body.provider || profile
+        const userKey = body.userKey?.trim() || `imap.${profile}.user`
+        const passwordKey = body.passwordKey?.trim() || `imap.${profile}.password`
+        const host = body.host?.trim() || (profile === 'gmail' ? 'imap.gmail.com' : 'outlook.office365.com')
+        const port = Number(body.port || 993)
+        if (!host) return c.json({ ok: false, error: 'IMAP 主机不能为空' }, 400)
+        if (!Number.isInteger(port) || port < 1 || port > 65535) return c.json({ ok: false, error: 'IMAP 端口无效' }, 400)
+        if (body.user?.trim()) await setSecret(userKey, body.user.trim())
+        if (body.password) await setSecret(passwordKey, body.password)
+        const current = loadConfig()
+        const profileConfig = {
+            provider,
+            host,
+            port,
+            tls: body.tls !== false,
+            mailbox: body.mailbox?.trim() || 'INBOX',
+            rejectUnauthorized: body.rejectUnauthorized !== false,
+            userKey,
+            passwordKey,
+        }
+        saveConfig({
+          ...current,
+          ...(profile === 'gmail' ? { imap: profileConfig } : {}),
+          imapProfiles: { ...(current.imapProfiles || {}), [profile]: profileConfig },
+        })
+        return c.json({ ok: true, profile, imap: { provider, host, port, mailbox: body.mailbox?.trim() || 'INBOX', userKey, passwordKey } })
+      } catch (error: any) {
+        return c.json({ ok: false, error: error?.message || String(error) }, 400)
+      }
+    },
   }),
 
   registerApiRoute('/admin/status', {
@@ -594,6 +691,147 @@ export const apiRoutes = [
     },
   }),
 
+  // ---------- 本机邮件事实观察台（只读，不创建任务或记忆） ----------
+  registerApiRoute('/task-debug', {
+    method: 'GET',
+    handler: async c => c.html(fs.readFileSync(TASK_DEBUG_PAGE_FILE, 'utf8')),
+  }),
+
+  registerApiRoute('/admin/task-debug', {
+    method: 'GET',
+    handler: async c => {
+      if (!getOutlookPolicyStatus().ready) return c.json({ ok: false, error: 'Outlook 地址信息策略尚未就绪。' }, 423)
+      return c.json({ ok: true, ...(await taskDebugSnapshot()) })
+    },
+  }),
+
+  registerApiRoute('/admin/task-debug/policy', {
+    method: 'GET',
+    handler: async c => c.json({ ok: true, policy: getOutlookPolicyStatus() }),
+  }),
+
+  registerApiRoute('/admin/task-debug/authorize-policy', {
+    method: 'POST',
+    handler: async c => {
+      const origin = c.req.header('origin')
+      const host = c.req.header('host')
+      let sameLoopbackOrigin = false
+      if (origin && host) {
+        try {
+          const parsed = new URL(origin)
+          sameLoopbackOrigin = parsed.protocol === 'http:'
+            && parsed.host === host
+            && ['127.0.0.1', 'localhost', '[::1]'].includes(parsed.hostname)
+        } catch { /* Invalid Origin is rejected below. */ }
+      }
+      if (!sameLoopbackOrigin) return c.json({ ok: false, error: '只允许从本机测试页面发起授权。' }, 403)
+
+      try {
+        await requestOutlookPolicyElevation()
+        return c.json({ ok: true })
+      } catch (error: any) {
+        return c.json({ ok: false, error: error?.message || String(error) }, 409)
+      }
+    },
+  }),
+
+  registerApiRoute('/admin/task-debug/analyze', {
+    method: 'POST',
+    handler: async c => {
+      if (!getOutlookPolicyStatus().ready) return c.json({ ok: false, error: 'Outlook 地址信息策略尚未就绪。' }, 423)
+      try {
+        const body = await c.req.json() as { entryId?: string }
+        if (!body.entryId?.trim()) return c.json({ ok: false, error: '缺少邮件 ID' }, 400)
+        return c.json({ ok: true, analysis: await analyzeDebugMail(body.entryId.trim()) })
+      } catch (error: any) {
+        const message = error?.name === 'AbortError'
+          ? '默认模型在 120 秒内没有返回。请检查模型服务后重试。'
+          : error?.message || String(error)
+        return c.json({ ok: false, error: message }, error?.name === 'AbortError' ? 504 : 502)
+      }
+    },
+  }),
+
+  registerApiRoute('/admin/task-debug/thread', {
+    method: 'GET',
+    handler: async c => {
+      const entryId = c.req.query('entryId')?.trim()
+      if (!entryId) return c.json({ ok: false, error: '缺少邮件 ID' }, 400)
+      try {
+        return c.json({ ok: true, thread: await loadDebugMailThread(entryId, c.req.query('touch') !== 'false') })
+      } catch (error: any) {
+        return c.json({ ok: false, error: error?.message || String(error) }, 404)
+      }
+    },
+  }),
+
+  registerApiRoute('/admin/task-debug/content', {
+    method: 'GET',
+    handler: async c => {
+      const entryId = c.req.query('entryId')?.trim()
+      if (!entryId) return c.json({ ok: false, error: '缺少邮件 ID' }, 400)
+      try {
+        return c.json({ ok: true, content: await loadDebugMailContent(entryId) })
+      } catch (error: any) {
+        return c.json({ ok: false, error: error?.message || String(error) }, 502)
+      }
+    },
+  }),
+
+  registerApiRoute('/admin/task-debug/chat', {
+    method: 'POST',
+    handler: async c => {
+      if (!getOutlookPolicyStatus().ready) return c.json({ ok: false, error: 'Outlook 地址信息策略尚未就绪。' }, 423)
+      try {
+        const body = await c.req.json() as { entryId?: string; message?: string }
+        const entryId = body.entryId?.trim()
+        const message = body.message?.trim()
+        if (!entryId || !message) return c.json({ ok: false, error: '邮件 ID 和消息内容不能为空' }, 400)
+        if (message.length > 4000) return c.json({ ok: false, error: '单条消息不能超过 4000 字符' }, 413)
+        return c.json({ ok: true, ...(await sendDebugMailChat(entryId, message)) })
+      } catch (error: any) {
+        const message = error?.name === 'AbortError'
+          ? '默认模型在 120 秒内没有返回。请检查模型服务后重试。'
+          : error?.message || String(error)
+        return c.json({ ok: false, error: message }, error?.name === 'AbortError' ? 504 : 502)
+      }
+    },
+  }),
+
+  registerApiRoute('/admin/task-debug/note-status', {
+    method: 'POST',
+    handler: async c => {
+      try {
+        const body = await c.req.json() as { noteId?: number; status?: string }
+        if (!Number.isInteger(body.noteId) || !['candidate', 'kept', 'dismissed'].includes(body.status || '')) {
+          return c.json({ ok: false, error: '便签 ID 或状态无效' }, 400)
+        }
+        const result = await updateReviewNoteStatus(body.noteId!, body.status as 'candidate' | 'kept' | 'dismissed')
+        if (!result) return c.json({ ok: false, error: '找不到这条便签' }, 404)
+        return c.json({ ok: true, ...result })
+      } catch (error: any) {
+        return c.json({ ok: false, error: error?.message || String(error) }, 500)
+      }
+    },
+  }),
+
+  registerApiRoute('/admin/task-debug/export', {
+    method: 'GET',
+    handler: async c => c.json({ ok: true, ...(await exportReviewHistory()) }),
+  }),
+
+  registerApiRoute('/admin/task-debug/log', {
+    method: 'GET',
+    handler: async c => {
+      const file = path.resolve(process.cwd(), '.aurabrain', 'mail-observation.jsonl')
+      if (!fs.existsSync(file)) return c.json({ ok: true, entries: [] })
+      const entries = fs.readFileSync(file, 'utf8').trimEnd().split(/\r?\n/).slice(-50).flatMap(line => {
+        try { return [JSON.parse(line)] } catch { return [] }
+      })
+      return c.json({ ok: true, entries })
+    },
+  }),
+
   // ---------- Graph 设备码登录 ----------
   registerApiRoute('/test-api/graph-login', {
     method: 'POST',
@@ -666,6 +904,84 @@ export const apiRoutes = [
       await clearToken()
       pendingDeviceCode = null
       return c.json({ ok: true, message: '已清除本地 Graph 令牌' })
+    },
+  }),
+
+  // ---------- Outlook IMAP OAuth 设备码登录 ----------
+  registerApiRoute('/test-api/imap-oauth-login', {
+    method: 'POST',
+    handler: async c => {
+      const body = await c.req.json().catch(() => ({})) as { profile?: string }
+      const profile = body.profile
+      if (profile !== 'outlook-personal' && profile !== 'outlook-enterprise') {
+        return c.json({ ok: false, error: 'Outlook IMAP OAuth profile 无效' }, 400)
+      }
+      try {
+        const dc = await startImapDeviceCode(profile)
+        pendingImapDeviceCodes.set(profile, {
+          code: dc.deviceCode,
+          interval: dc.interval || 5,
+          expiresAt: Date.now() + (dc.expires_in || 900) * 1000,
+        })
+        return c.json({
+          ok: true,
+          user_code: dc.user_code,
+          verification_uri: dc.verification_uri,
+          message: dc.message,
+        })
+      } catch (e: any) {
+        return c.json({ ok: false, error: e?.message || String(e) })
+      }
+    },
+  }),
+
+  registerApiRoute('/test-api/imap-oauth-poll', {
+    method: 'POST',
+    handler: async c => {
+      const body = await c.req.json().catch(() => ({})) as { profile?: string }
+      const profile = body.profile
+      if (profile !== 'outlook-personal' && profile !== 'outlook-enterprise') {
+        return c.json({ ok: false, error: 'Outlook IMAP OAuth profile 无效' }, 400)
+      }
+      const pending = pendingImapDeviceCodes.get(profile)
+      if (!pending) return c.json({ ok: false, pending: false, error: '没有进行中的微软登录，请先点击登录' })
+      try {
+        await pollImapDeviceCode(profile, pending.code)
+        pendingImapDeviceCodes.delete(profile)
+        return c.json({ ok: true, message: '微软账号登录成功，Outlook IMAP OAuth 已就绪' })
+      } catch (e: any) {
+        const message = e?.message || String(e)
+        if (Date.now() < pending.expiresAt && (message.includes('authorization_pending') || message.includes('slow_down'))) {
+          return c.json({ ok: false, pending: true, message: '等待微软账号登录…' })
+        }
+        pendingImapDeviceCodes.delete(profile)
+        return c.json({ ok: false, pending: false, error: message.includes('expired_token') ? '微软登录设备码已过期，请重新发起' : message })
+      }
+    },
+  }),
+
+  registerApiRoute('/test-api/imap-oauth-status', {
+    method: 'GET',
+    handler: async c => {
+      const profile = c.req.query('profile')
+      if (profile !== 'outlook-personal' && profile !== 'outlook-enterprise') {
+        return c.json({ ok: false, error: 'Outlook IMAP OAuth profile 无效' }, 400)
+      }
+      return c.json({ ok: true, profile, ...(await getImapOAuthStatus(profile)) })
+    },
+  }),
+
+  registerApiRoute('/test-api/imap-oauth-logout', {
+    method: 'POST',
+    handler: async c => {
+      const body = await c.req.json().catch(() => ({})) as { profile?: string }
+      const profile = body.profile
+      if (profile !== 'outlook-personal' && profile !== 'outlook-enterprise') {
+        return c.json({ ok: false, error: 'Outlook IMAP OAuth profile 无效' }, 400)
+      }
+      pendingImapDeviceCodes.delete(profile)
+      await clearImapOAuthToken(profile)
+      return c.json({ ok: true, message: '已清除 Outlook IMAP OAuth 令牌' })
     },
   }),
 
@@ -879,8 +1195,8 @@ export const apiRoutes = [
       }
       const config = loadConfig()
       const caps = config.capabilities ?? {}
-      if (typeof body.browser === 'boolean') caps.browser = body.browser
       if (typeof body.filesystem === 'boolean') caps.filesystem = body.filesystem
+      caps.browser = false
       config.capabilities = caps
       saveConfig(config)
       return c.json({ ok: true, capabilities: getCapabilityFlags() })
