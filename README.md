@@ -33,28 +33,29 @@ AuraBrain
 
 ## 使用方式
 
-### 作为后台 Runtime
+### 从源码运行 Runtime（当前唯一推荐路径）
 
-在另一台机器上从 Git 拉取源码后，先安装 Node.js 25 或兼容的较新版本，然后执行：
+当前先使用源码模式验证 AuraBrain。目标机器需要先安装 Node.js 22 或更高版本；不需要全局安装 `brain`，也不需要 `npm link`：
 
 ```powershell
 git clone https://github.com/duwenlong2/AuraBrain.git AuraBrain
 cd AuraBrain
 npm install
-npm link
-brain build
-brain dev
+npm run build
+npm run dev
 ```
 
 默认监听 `127.0.0.1:49000`。生产模式使用：
 
 ```powershell
-brain stop
-brain build
-brain start
+npm run stop
+npm run build
+npm run start
 ```
 
-`brain build` 会生成本地 `.mastra/output/`，该目录已被 Git 忽略，不需要上传。开发者修改源码后再次执行 `brain build`，再执行 `brain dev`。
+当前暂不把安装器、托盘程序或 GitHub Release 作为稳定运行方式。等源码模式的启动、健康检查、模型配置和停止流程全部验证清楚后，再单独设计面向普通用户的安装产物。
+
+`npm run build` 会生成本地 `.mastra/output/`，该目录已被 Git 忽略，不需要上传。开发者修改源码后再次执行 `npm run build`，再执行 `npm run dev`。
 
 最小生命周期接口：
 
@@ -84,60 +85,53 @@ GET /health
 
 `stream: true` 时返回 OpenAI-compatible SSE；不传或设为 `false` 时返回 `{ "ok": true, "model": "...", "text": "..." }`。旧的 `POST /admin/model-chat` 仍保留给 Console 和兼容旧测试页面使用，但新客户端应优先使用 `/v1/chat`。
 
-### 通过 CLI 使用
+### 在源码目录使用 CLI
 
-在 AuraBrain 根目录执行一次 `npm link`，注册本机 CLI 命令：
-
-```powershell
-cd D:\Codes\xxx\workspace\AuraBrain
-npm link
-```
-
-之后进入 AuraBrain 目录即可直接使用 `brain`：
+CLI 当前通过 npm script 调用，不注册全局 `brain` 命令。请始终在 AuraBrain 根目录执行：
 
 ```powershell
 cd D:\Codes\xxx\workspace\AuraBrain
 
 # 启动本地 Runtime（后台运行，启动成功后立即返回终端）
-brain dev
+npm run dev
 
 # 停止 Runtime
-brain stop
+npm run stop
 
 # 查询 Runtime 状态
-brain status
+npm run status
 
 # 查看最近 50 行运行日志
-brain logs
+npm run cli -- logs
 
 # 首次配置模型：自动打开 AuraBrain 配置页
-brain init
+npm run init
 
 # 修改模型或 Runtime 设置
-brain settings
+npm run settings
 
 # 启动文字 Chat，用于验证默认模型是否能正常返回
-brain chat
+npm run chat
 # Chat 中输入 /clear 清空当前上下文，输入 /exit 或 /quit 退出
 
 # 查询健康接口
-brain health
+npm run health
 
 # 调用 HTTP 接口；无 JSON 参数时使用 GET
-brain call /health
+npm run call -- /health
 
 # 发送 JSON 请求体时使用 POST
-brain call /test-api/run '{"tool":"outlook-test-connection","input":{}}'
+npm run call -- /test-api/run '{"tool":"outlook-test-connection","input":{}}'
 
 # 生产模式：先构建，再启动
-brain build
-brain start
+npm run build
+npm run start
 ```
 
-默认连接固定为 `http://127.0.0.1:49000`。`brain status` 会同时显示 Runtime 是否运行，以及模型是否完成初始化。
-`brain dev` 使用最近一次构建产物启动，避免 Windows 下 Mastra 开发重建与 `keytar` 原生模块发生文件锁冲突；修改源码后重新执行 `brain build` 即可。
+默认连接固定为 `http://127.0.0.1:49000`。`npm run status` 会同时显示 Runtime 是否运行，以及模型是否完成初始化。
+`npm run dev` 使用最近一次构建产物启动，避免 Windows 下 Mastra 开发重建与 `keytar` 原生模块发生文件锁冲突；修改源码后重新执行 `npm run build` 即可。
 
-`aurabrain` 仍然作为完整命令保留；`brain` 是推荐的短命令。
+当前不要求系统存在 `brain` 或 `aurabrain` 全局命令。后续如果设计稳定的用户安装包，会单独定义命令注册和卸载行为。
 
 ### 敏感配置存储
 
@@ -155,7 +149,7 @@ AuraBrain 的敏感配置不应直接写入普通配置文件。Runtime 使用�
 2. 在 `src/main/tools/` 增加业务工具，在 `src/main/lib/` 增加 Outlook、IMAP、Graph 等适配器。
 3. 在 `src/main/routes.ts` 增加管理接口或稳定的公共接口；客户端不要依赖 Mastra 的 `/settings/*` 页面。
 4. 运行 `npx esbuild src/main/routes.ts --bundle --platform=node --format=esm --external:@mastra/core --external:keytar` 做快速检查。
-5. 执行 `brain build`，再用 `brain dev` 启动验证。
+5. 执行 `npm run build`，再用 `npm run dev` 启动验证。
 
 更完整的目录说明、扩展边界和最小示例见 [Runtime 开发指南](docs/runtime-development.md)。
 

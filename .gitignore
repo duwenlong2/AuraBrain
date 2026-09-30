@@ -17,6 +17,17 @@ dist/
 
 .aurabrain-runtime.pid
 .aurabrain/
+# Local mail, Outlook, and capability policy experiments.
+/capabilities.json
+/*.reg
+/scripts/set-outlook-address-info-policy.ps1
+/src/main/lib/capability-manifest.ts
+/src/main/lib/mail-review-store.ts
+/src/main/lib/outlook-imap-oauth.ts
+/src/main/lib/outlook-policy.ts
+/src/main/lib/task-debug.ts
+/src/main/public/task-debug.html
+/src/main/public/task-review.html
 # Workspace frontend is synchronized here only for local packaging.
 /src/main/public/workspace/
 
