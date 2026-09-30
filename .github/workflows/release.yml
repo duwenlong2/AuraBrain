@@ -78,6 +78,7 @@ jobs:
           dotnet publish native/AuraBrain.Tray/AuraBrain.Tray.csproj -c Release -r win-x64 --self-contained false -p:Platform=x64 -o (Join-Path $installer 'native')
           $payload = Join-Path $installer 'payload'
           New-Item -ItemType Directory -Path $payload -Force | Out-Null
+          New-Item -ItemType Directory -Path (Join-Path $payload 'native') -Force | Out-Null
           Copy-Item bin,README.md,LICENSE,package.json,package-lock.json,scripts -Destination $payload -Recurse -Force
           New-Item -ItemType Directory -Path (Join-Path $payload '.mastra') -Force | Out-Null
           Copy-Item .mastra/output -Destination (Join-Path $payload '.mastra') -Recurse -Force
