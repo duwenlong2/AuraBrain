@@ -12,6 +12,7 @@ internal sealed class SetupForm : Form
     private readonly ProgressBar _progress = new() { Dock = DockStyle.Fill, Style = ProgressBarStyle.Marquee };
     private readonly string _payloadRoot;
     private readonly string _installRoot = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "AuraBrain", "Runtime");
+    private long _lastStatusTick;
 
     public SetupForm()
     {
@@ -58,7 +59,7 @@ internal sealed class SetupForm : Form
             _status.Text = "正在准备安装文件...";
             var staging = Path.Combine(Path.GetTempPath(), $"AuraBrain-setup-{Guid.NewGuid():N}");
             Directory.CreateDirectory(staging);
-            CopyDirectory(packageRoot, staging);
+            await Task.Run(() => CopyDirectory(packageRoot, staging));
             _status.Text = "正在检查并准备 Node.js...";
             var script = Path.Combine(staging, "scripts", "install-windows.ps1");
             var arguments = $"-NoProfile -ExecutionPolicy Bypass -File \"{script}\" -InstallRoot \"{_installRoot}\"";
@@ -76,13 +77,19 @@ internal sealed class SetupForm : Form
             }) ?? throw new InvalidOperationException("无法启动安装步骤。");
             process.OutputDataReceived += (_, eventArgs) =>
             {
-                if (!string.IsNullOrWhiteSpace(eventArgs.Data))
+                if (!string.IsNullOrWhiteSpace(eventArgs.Data) && Environment.TickCount64 - Interlocked.Read(ref _lastStatusTick) > 250)
+                {
+                    Interlocked.Exchange(ref _lastStatusTick, Environment.TickCount64);
                     BeginInvoke(() => _status.Text = eventArgs.Data);
+                }
             };
             process.ErrorDataReceived += (_, eventArgs) =>
             {
-                if (!string.IsNullOrWhiteSpace(eventArgs.Data))
+                if (!string.IsNullOrWhiteSpace(eventArgs.Data) && Environment.TickCount64 - Interlocked.Read(ref _lastStatusTick) > 250)
+                {
+                    Interlocked.Exchange(ref _lastStatusTick, Environment.TickCount64);
                     BeginInvoke(() => _status.Text = eventArgs.Data);
+                }
             };
             process.BeginOutputReadLine();
             process.BeginErrorReadLine();
