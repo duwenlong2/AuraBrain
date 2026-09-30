@@ -75,11 +75,18 @@ jobs:
           Compress-Archive -Path (Join-Path $stage '*') -DestinationPath '${{ matrix.archive }}' -Force
           $installer = Join-Path $env:RUNNER_TEMP 'AuraBrain-windows-x64-installer'
           New-Item -ItemType Directory -Path $installer -Force | Out-Null
-          Copy-Item bin,README.md,LICENSE,package.json,package-lock.json,scripts/install-windows.ps1 -Destination $installer -Recurse -Force
-          New-Item -ItemType Directory -Path (Join-Path $installer '.mastra') -Force | Out-Null
-          Copy-Item .mastra/output -Destination (Join-Path $installer '.mastra') -Recurse -Force
-          Remove-Item (Join-Path $installer '.mastra\output\node_modules') -Recurse -Force -ErrorAction SilentlyContinue
           dotnet publish native/AuraBrain.Tray/AuraBrain.Tray.csproj -c Release -r win-x64 --self-contained false -p:Platform=x64 -o (Join-Path $installer 'native')
+          $payload = Join-Path $installer 'payload'
+          New-Item -ItemType Directory -Path $payload -Force | Out-Null
+          Copy-Item bin,README.md,LICENSE,package.json,package-lock.json,scripts -Destination $payload -Recurse -Force
+          New-Item -ItemType Directory -Path (Join-Path $payload '.mastra') -Force | Out-Null
+          Copy-Item .mastra/output -Destination (Join-Path $payload '.mastra') -Recurse -Force
+          Remove-Item (Join-Path $payload '.mastra\output\node_modules') -Recurse -Force -ErrorAction SilentlyContinue
+          Copy-Item (Join-Path $installer 'native\AuraBrain.Tray.exe') -Destination (Join-Path $payload 'native\AuraBrain.Tray.exe') -Force
+          dotnet publish native/AuraBrain.Setup/AuraBrain.Setup.csproj -c Release -r win-x64 --self-contained true -p:Platform=x64 -o (Join-Path $installer 'setup-build')
+          Copy-Item (Join-Path $installer 'setup-build\AuraBrain-Setup.exe') -Destination $installer -Force
+          Remove-Item (Join-Path $installer 'native') -Recurse -Force
+          Remove-Item (Join-Path $installer 'setup-build') -Recurse -Force
           Compress-Archive -Path (Join-Path $installer '*') -DestinationPath 'AuraBrain-windows-x64-installer.zip' -Force
 
       - name: Package Linux Runtime

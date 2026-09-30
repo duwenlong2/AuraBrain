@@ -1,0 +1,13 @@
+{
+  "version": 2,
+  "dgSpecHash": "feOgTDA4xw8=",
+  "success": true,
+  "projectFilePath": "D:\\Codes\\Lenovo\\workspace\\AuraBrain\\native\\AuraBrain.Setup\\AuraBrain.Setup.csproj",
+  "expectedPackageFiles": [
+    "C:\\Users\\qaz21\\.nuget\\packages\\microsoft.net.illink.tasks\\8.0.25\\microsoft.net.illink.tasks.8.0.25.nupkg.sha512",
+    "C:\\Users\\qaz21\\.nuget\\packages\\microsoft.netcore.app.runtime.win-x64\\8.0.25\\microsoft.netcore.app.runtime.win-x64.8.0.25.nupkg.sha512",
+    "C:\\Users\\qaz21\\.nuget\\packages\\microsoft.windowsdesktop.app.runtime.win-x64\\8.0.25\\microsoft.windowsdesktop.app.runtime.win-x64.8.0.25.nupkg.sha512",
+    "C:\\Users\\qaz21\\.nuget\\packages\\microsoft.aspnetcore.app.runtime.win-x64\\8.0.25\\microsoft.aspnetcore.app.runtime.win-x64.8.0.25.nupkg.sha512"
+  ],
+  "logs": []
+}
