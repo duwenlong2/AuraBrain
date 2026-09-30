@@ -1,7 +1,4 @@
 using System.Diagnostics;
-using System.IO.Compression;
-using System.Net;
-using System.Net.Http;
 using System.Windows.Forms;
 
 namespace AuraBrain.Setup;
@@ -11,31 +8,44 @@ internal sealed class SetupForm : Form
     private readonly CheckBox _startup = new() { Text = "登录 Windows 时自动启动 AuraBrain", Checked = true, AutoSize = true };
     private readonly CheckBox _tray = new() { Text = "创建系统托盘图标", Checked = true, AutoSize = true };
     private readonly Label _status = new() { AutoSize = true, Text = "准备安装..." };
-    private readonly Button _install = new() { Text = "开始安装", AutoSize = true };
-    private readonly ProgressBar _progress = new() { Width = 430, Style = ProgressBarStyle.Marquee };
+    private readonly Button _install = new() { Text = "开始安装", AutoSize = true, Anchor = AnchorStyles.Right };
+    private readonly ProgressBar _progress = new() { Dock = DockStyle.Fill, Style = ProgressBarStyle.Marquee };
     private readonly string _payloadRoot;
     private readonly string _installRoot = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "AuraBrain", "Runtime");
 
     public SetupForm()
     {
         Text = "AuraBrain 安装程序";
-        Width = 520;
-        Height = 300;
+        Width = 560;
+        Height = 360;
         StartPosition = FormStartPosition.CenterScreen;
         FormBorderStyle = FormBorderStyle.FixedDialog;
         MaximizeBox = false;
         MinimizeBox = false;
 
         _payloadRoot = AppContext.BaseDirectory;
-        var title = new Label { Text = "安装 AuraBrain", AutoSize = true, Font = new Font(Font, FontStyle.Bold), Top = 28, Left = 32 };
-        var description = new Label { Text = "安装 Runtime、准备 Node.js，并创建可选的启动入口。", AutoSize = true, Top = 68, Left = 32 };
-        _startup.Top = 112; _startup.Left = 32;
-        _tray.Top = 145; _tray.Left = 32;
-        _progress.Top = 185; _progress.Left = 32;
-        _status.Top = 218; _status.Left = 32;
-        _install.Top = 245; _install.Left = 390;
+        var title = new Label { Text = "安装 AuraBrain", AutoSize = true, Font = new Font(Font, FontStyle.Bold) };
+        var description = new Label { Text = "安装 Runtime、准备 Node.js，并创建可选的启动入口。", AutoSize = true };
+        var layout = new TableLayoutPanel { Dock = DockStyle.Fill, Padding = new Padding(32), ColumnCount = 2, RowCount = 8 };
+        layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+        layout.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+        layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 18));
+        layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 28));
+        layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        layout.Controls.Add(title, 0, 0); layout.SetColumnSpan(title, 2);
+        layout.Controls.Add(description, 0, 1); layout.SetColumnSpan(description, 2);
+        layout.Controls.Add(_startup, 0, 3); layout.SetColumnSpan(_startup, 2);
+        layout.Controls.Add(_tray, 0, 4); layout.SetColumnSpan(_tray, 2);
+        layout.Controls.Add(_progress, 0, 5); layout.SetColumnSpan(_progress, 2);
+        layout.Controls.Add(_status, 0, 6);
+        layout.Controls.Add(_install, 1, 7);
         _install.Click += async (_, _) => await InstallAsync();
-        Controls.AddRange([title, description, _startup, _tray, _progress, _status, _install]);
+        Controls.Add(layout);
     }
 
     private async Task InstallAsync()
@@ -64,12 +74,20 @@ internal sealed class SetupForm : Form
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
             }) ?? throw new InvalidOperationException("无法启动安装步骤。");
-            var outputTask = process.StandardOutput.ReadToEndAsync();
-            var errorTask = process.StandardError.ReadToEndAsync();
+            process.OutputDataReceived += (_, eventArgs) =>
+            {
+                if (!string.IsNullOrWhiteSpace(eventArgs.Data))
+                    BeginInvoke(() => _status.Text = eventArgs.Data);
+            };
+            process.ErrorDataReceived += (_, eventArgs) =>
+            {
+                if (!string.IsNullOrWhiteSpace(eventArgs.Data))
+                    BeginInvoke(() => _status.Text = eventArgs.Data);
+            };
+            process.BeginOutputReadLine();
+            process.BeginErrorReadLine();
             await process.WaitForExitAsync();
-            var output = await outputTask;
-            var error = await errorTask;
-            if (process.ExitCode != 0) throw new InvalidOperationException(string.IsNullOrWhiteSpace(error) ? output : error);
+            if (process.ExitCode != 0) throw new InvalidOperationException("安装步骤失败。请检查网络连接和安装日志后重试。");
             _status.Text = "安装完成，正在启动 AuraBrain...";
             var node = Path.Combine(_installRoot, "node", "node.exe");
             var cli = Path.Combine(_installRoot, "bin", "aurabrain.mjs");
