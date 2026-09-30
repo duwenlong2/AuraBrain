@@ -7,6 +7,8 @@
 node_modules/
 dist/
 .mastra/
+**/bin/
+**/obj/
 
 # Environment files used by learning examples; never commit local secrets.
 .env
@@ -15,6 +17,8 @@ dist/
 
 .aurabrain-runtime.pid
 .aurabrain/
+# Workspace frontend is synchronized here only for local packaging.
+/src/main/public/workspace/
 
 # 数据库 / 本地存储
 *.db
