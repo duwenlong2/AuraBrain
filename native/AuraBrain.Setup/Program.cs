@@ -12,6 +12,8 @@ internal sealed class SetupForm : Form
     private readonly ProgressBar _progress = new() { Dock = DockStyle.Fill, Style = ProgressBarStyle.Marquee };
     private readonly string _payloadRoot;
     private readonly string _installRoot = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "AuraBrain", "Runtime");
+    private readonly string _logPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "AuraBrain", "Logs", "installer.log");
+    private readonly object _logLock = new();
     private long _lastStatusTick;
 
     public SetupForm()
@@ -54,17 +56,20 @@ internal sealed class SetupForm : Form
         _install.Enabled = false;
         try
         {
+            Directory.CreateDirectory(Path.GetDirectoryName(_logPath)!);
+            File.AppendAllText(_logPath, $"\r\n[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] Installation started.\r\n");
             var packageRoot = Path.Combine(_payloadRoot, "payload");
             if (!Directory.Exists(packageRoot)) throw new InvalidOperationException("安装包缺少 payload 目录。");
-            _status.Text = "正在准备安装文件...";
+            SetStatus("正在准备安装文件...");
             var staging = Path.Combine(Path.GetTempPath(), $"AuraBrain-setup-{Guid.NewGuid():N}");
             Directory.CreateDirectory(staging);
             await Task.Run(() => CopyDirectory(packageRoot, staging));
-            _status.Text = "正在检查并准备 Node.js...";
+            SetStatus("正在检查并准备 Node.js...");
             var script = Path.Combine(staging, "scripts", "install-windows.ps1");
             var arguments = $"-NoProfile -ExecutionPolicy Bypass -File \"{script}\" -InstallRoot \"{_installRoot}\"";
             if (!_startup.Checked) arguments += " -NoStartup";
             if (!_tray.Checked) arguments += " -NoTray";
+            SetStatus("正在安装 Runtime 依赖...");
             using var process = Process.Start(new ProcessStartInfo
             {
                 FileName = "powershell.exe",
@@ -77,25 +82,17 @@ internal sealed class SetupForm : Form
             }) ?? throw new InvalidOperationException("无法启动安装步骤。");
             process.OutputDataReceived += (_, eventArgs) =>
             {
-                if (!string.IsNullOrWhiteSpace(eventArgs.Data) && Environment.TickCount64 - Interlocked.Read(ref _lastStatusTick) > 250)
-                {
-                    Interlocked.Exchange(ref _lastStatusTick, Environment.TickCount64);
-                    BeginInvoke(() => _status.Text = eventArgs.Data);
-                }
+                HandleOutput(eventArgs.Data);
             };
             process.ErrorDataReceived += (_, eventArgs) =>
             {
-                if (!string.IsNullOrWhiteSpace(eventArgs.Data) && Environment.TickCount64 - Interlocked.Read(ref _lastStatusTick) > 250)
-                {
-                    Interlocked.Exchange(ref _lastStatusTick, Environment.TickCount64);
-                    BeginInvoke(() => _status.Text = eventArgs.Data);
-                }
+                HandleOutput(eventArgs.Data);
             };
             process.BeginOutputReadLine();
             process.BeginErrorReadLine();
             await process.WaitForExitAsync();
             if (process.ExitCode != 0) throw new InvalidOperationException("安装步骤失败。请检查网络连接和安装日志后重试。");
-            _status.Text = "安装完成，正在启动 AuraBrain...";
+            SetStatus("安装完成，正在启动 AuraBrain...");
             var node = Path.Combine(_installRoot, "node", "node.exe");
             var cli = Path.Combine(_installRoot, "bin", "aurabrain.mjs");
             if (!File.Exists(node)) node = "node.exe";
@@ -105,9 +102,51 @@ internal sealed class SetupForm : Form
         }
         catch (Exception error)
         {
-            _status.Text = "安装失败，旧版本未被修改。";
+            Log($"ERROR: {error}");
+            SetStatus("安装失败，旧版本未被修改。日志已保存。");
             MessageBox.Show(error.Message, "AuraBrain 安装失败", MessageBoxButtons.OK, MessageBoxIcon.Error);
             _install.Enabled = true;
+        }
+    }
+
+    private void HandleOutput(string? output)
+    {
+        if (string.IsNullOrWhiteSpace(output)) return;
+        Log(output);
+        var status = output switch
+        {
+            var line when line.Contains("Downloading Node.js", StringComparison.OrdinalIgnoreCase) => "正在下载 Node.js...",
+            var line when line.Contains("npm ci", StringComparison.OrdinalIgnoreCase) => "正在安装 Runtime 依赖...",
+            var line when line.Contains("installation complete", StringComparison.OrdinalIgnoreCase) => "正在创建启动入口...",
+            var line when line.Contains("Startup:", StringComparison.OrdinalIgnoreCase) => "正在配置开机启动...",
+            var line when line.Contains("Tray:", StringComparison.OrdinalIgnoreCase) => "正在配置系统托盘...",
+            _ => null
+        };
+        if (status is null || Environment.TickCount64 - Interlocked.Read(ref _lastStatusTick) <= 250) return;
+        Interlocked.Exchange(ref _lastStatusTick, Environment.TickCount64);
+        SetStatus(status);
+    }
+
+    private void SetStatus(string status)
+    {
+        if (IsDisposed) return;
+        if (InvokeRequired)
+        {
+            BeginInvoke(() => SetStatus(status));
+            return;
+        }
+        _status.Text = status;
+    }
+
+    private void Log(string message)
+    {
+        try
+        {
+            lock (_logLock)
+                File.AppendAllText(_logPath, $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] {message}{Environment.NewLine}");
+        }
+        catch
+        {
         }
     }
 
